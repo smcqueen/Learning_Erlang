@@ -1,0 +1,3 @@
+interface salestax  {
+     float  calculate_tax ( in float taxable_amount );
+}
