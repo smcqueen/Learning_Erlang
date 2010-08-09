@@ -6,12 +6,14 @@
 %%% @end
 %%% Created :  9 Aug 2010 by Stan McQueen <smcqueen@ubuntu910.bluffdale.iaccess.com>
 %%%-------------------------------------------------------------------
--module(sc_sup).
+-module(sc_element_sup).
 
 -behaviour(supervisor).
 
 %% API
--export([start_link/0]).
+-export([start_link/0,
+         start_child/2
+       ]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -32,6 +34,14 @@
 start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
+%%--------------------------------------------------------------------
+%% @doc Starts child processes
+%% @spec start_child(Key, Value) -> {ok, Pid}
+%% @end
+%%--------------------------------------------------------------------
+start_child(Key, Value) ->
+    supervisor:start_child(?SERVER, [Key, Value]).
+
 %%%===================================================================
 %%% Supervisor callbacks
 %%%===================================================================
@@ -50,24 +60,20 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-    RestartStrategy = one_for_one,
-    MaxRestarts = 4,
-    MaxSecondsBetweenRestarts = 3600,
+    RestartStrategy = simple_one_for_one,
+    MaxRestarts = 0,
+    MaxSecondsBetweenRestarts = 1,
 
     SupFlags = {RestartStrategy, MaxRestarts, MaxSecondsBetweenRestarts},
 
-    Restart = permanent,
-    Shutdown = 2000,
+    Restart = temporary,
+    Shutdown = brutal_kill,
+    Type = worker,
 
-    ElementSup = {sc_element_sup, {sc_element_sup, start_link, []},
-	      Restart, Shutdown, supervisor, [sc_element]},
+    AChild = {sc_element, {sc_element, start_link, []},
+	      Restart, Shutdown, Type, [sc_element]},
 
-    EventManager = {sc_event, {sc_event, start_link, []},
-	      Restart, Shutdown, worker, [sc_event]},
-
-    Children = [ElementSup, EventManager],
-
-    {ok, {SupFlags, Children}}.
+    {ok, {SupFlags, [AChild]}}.
 
 %%%===================================================================
 %%% Internal functions

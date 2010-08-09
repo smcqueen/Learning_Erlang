@@ -9,16 +9,20 @@
 insert(Key, Value) ->
     case sc_store:lookup(Key) of
 	{ok, Pid} ->
+	    sc_event:replace(Key, Value),
 	    sc_element:replace(Pid, Value);
 	{error, _} ->
 	    {ok, Pid} = sc_element:create(Value),
-	    sc_store:insert(Key, Pid)
+	    sc_store:insert(Key, Pid),
+	    sc_event:create(Key)
     end.
 
 lookup(Key) ->
+    sc_event:lookup(Key),
     try
 	{ok, Pid} = sc_store:lookup(Key),
 	{ok, Value} = sc_element:fetch(Pid),
+	
 	{ok, Value}
     catch
 	_Class:_Exception ->
@@ -26,6 +30,7 @@ lookup(Key) ->
     end.
 
 delete(Key) ->
+    sc_event:delete(Key),
     case sc_store:lookup(Key) of
 	{ok, Pid} ->
 	    sc_element:delete(Pid);
