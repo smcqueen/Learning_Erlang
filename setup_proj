@@ -1,0 +1,14 @@
+#!/bin/bash
+mkdir $1
+cd $1
+mkdir doc
+mkdir ebin
+mkdir include
+mkdir priv
+mkdir src
+touch doc/placeholder.txt
+touch ebin/placeholder.txt
+touch include/placeholder.txt
+touch priv/placeholder.txt
+touch src/placeholder.txt
+
