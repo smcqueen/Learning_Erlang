@@ -78,7 +78,6 @@ stop() ->
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @private
 %% @doc
 %% Initiates the server
 %%
@@ -93,7 +92,6 @@ init([Port]) ->
     {ok, #state{port = Port, lsock = LSock}, 0}.
 
 %%--------------------------------------------------------------------
-%% @private
 %% @doc
 %% Handling call messages
 %%
@@ -110,7 +108,6 @@ handle_call(get_count, _From, State) ->
     {reply, {ok, State#state.request_count}, State}.
 
 %%--------------------------------------------------------------------
-%% @private
 %% @doc
 %% Handling cast messages
 %%
@@ -123,7 +120,6 @@ handle_cast(stop, State) ->
     {stop, ok, State}.
 
 %%--------------------------------------------------------------------
-%% @private
 %% @doc
 %% Handling all non call/cast messages
 %%
@@ -141,7 +137,6 @@ handle_info(timeout, #state{lsock = LSock} = State) ->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
-%% @private
 %% @doc
 %% This function is called by a gen_server when it is about to
 %% terminate. It should be the opposite of Module:init/1 and do any
@@ -155,7 +150,6 @@ terminate(_Reason, _State) ->
     ok.
 
 %%--------------------------------------------------------------------
-%% @private
 %% @doc
 %% Convert process state when code is changed
 %%
