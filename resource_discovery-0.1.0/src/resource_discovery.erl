@@ -16,6 +16,7 @@
 	 add_target_resource_type/1,
 	 add_local_resource/2,
 	 fetch_resources/1,
+	 fetch_resource_types/0,
 	 trade_resources/0
 	]).
 
@@ -89,6 +90,14 @@ fetch_resources(Type) ->
     gen_server:call(?SERVER, {fetch_resources, Type}).
 
 %%--------------------------------------------------------------------
+%% @doc Fetch a list of all resource types
+%% @spec
+%% @end
+%%--------------------------------------------------------------------
+fetch_resource_types() ->
+    gen_server:call(?SERVER, fetch_resource_types).
+
+%%--------------------------------------------------------------------
 %% @doc Trigger resource trading
 %% @spec
 %% @end
@@ -111,7 +120,9 @@ trade_resources() ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({fetch_resources, Type}, _From, State) ->
-    {reply, dict:find(Type, State#state.typed_resources), State}.
+    {reply, dict:find(Type, State#state.typed_resources), State};
+handle_call(fetch_resource_types, _From, State) ->
+    {reply, dict:fetch_keys(State#state.typed_resources), State}.
 
 %%--------------------------------------------------------------------
 %% @private
