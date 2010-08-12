@@ -26,8 +26,8 @@
 -define(SERVER, ?MODULE). 
 
 -record(state, {target_resource_types,
-	        local_resources,
-	        resources
+	        local_typed_resources,
+	        typed_resources
 	       }).
 
 %%%===================================================================
@@ -61,8 +61,8 @@ start_link() ->
 %%--------------------------------------------------------------------
 init([]) ->
     {ok, #state{target_resource_types = [],
-	        local_resources       = dict:new(),
-	        resources             = dict:new()}}.
+	        local_typed_resources       = dict:new(),
+	        typed_resources             = dict:new()}}.
 
 %%--------------------------------------------------------------------
 %% @doc Add a target resouce (one I'm looking for)
@@ -111,7 +111,7 @@ trade_resources() ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({fetch_resources, Type}, _From, State) ->
-    Reply = dict:find(Type, State#state.resources),
+    Reply = dict:find(Type, State#state.typed_resources),
     {reply, Reply, State}.
 
 %%--------------------------------------------------------------------
@@ -129,11 +129,11 @@ handle_cast({add_target_resource_type, Type}, State) ->
     NewTargetTypes = [Type | lists:delete(Type, TargetTypes)],
     {noreply, State#state{target_resource_types = NewTargetTypes}};
 handle_cast({add_local_resource, {Type, Instance}}, State) ->
-    LocalResources = State#state.local_resources,
+    LocalResources = State#state.local_typed_resources,
     NewLocalResources = add_resource(Type, Instance, LocalResources),
-    {noreply, State#state{local_resources = NewLocalResources}};
+    {noreply, State#state{local_typed_resources = NewLocalResources}};
 handle_cast(trade_resources, State) ->
-    LocalResources = State#state.local_resources,
+    LocalResources = State#state.local_typed_resources,
     AllNodes = [node() | nodes()],
     lists:foreach(
       fun(Node) ->
@@ -143,9 +143,9 @@ handle_cast(trade_resources, State) ->
       AllNodes),
     {noreply, State};
 handle_cast({trade_resources, {ReplyTo, RemoteResources}},
-	    #state{local_resources       = LocalResources,
+	    #state{local_typed_resources       = LocalResources,
 		   target_resource_types = TargetTypes,
-		   resources             = Resources} = State) ->
+		   typed_resources             = Resources} = State) ->
     ResourceList = resources_for_types(TargetTypes, RemoteResources),
     NewResources = add_resources(ResourceList, Resources),
     case ReplyTo of
@@ -155,7 +155,7 @@ handle_cast({trade_resources, {ReplyTo, RemoteResources}},
 	    gen_server:cast({?SERVER, ReplyTo},
 	                    {trade_resources, {noreply, LocalResources}})
     end,
-    {noreply, State#state{resources = NewResources}}.
+    {noreply, State#state{typed_resources = NewResources}}.
 
 %%--------------------------------------------------------------------
 %% @private
