@@ -1,2 +1,2 @@
 #!/bin/bash
-erl -pa ebin -boot start_sasl
+erl -pa ebin -boot start_sasl -sname $1
