@@ -111,8 +111,7 @@ trade_resources() ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({fetch_resources, Type}, _From, State) ->
-    Reply = dict:find(Type, State#state.typed_resources),
-    {reply, Reply, State}.
+    {reply, dict:find(Type, State#state.typed_resources), State}.
 
 %%--------------------------------------------------------------------
 %% @private
