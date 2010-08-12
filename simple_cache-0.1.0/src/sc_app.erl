@@ -13,6 +13,8 @@
 %% Application callbacks
 -export([start/2, stop/1]).
 
+-define(WAIT_FOR_RESOURCES, 2500).
+
 %%%===================================================================
 %%% Application callbacks
 %%%===================================================================
@@ -35,6 +37,10 @@
 %%--------------------------------------------------------------------
 start(_StartType, _StartArgs) ->
     ok = ensure_contact(),
+    resource_discovery:add_local_resource(simple_cache, node()),
+    resource_discovery:add_target_resource_type(simple_cache),
+    resource_discovery:trade_resources(),
+    timer:sleep(?WAIT_FOR_RESOURCES),
     sc_store:init(),
     case sc_sup:start_link() of
 	{ok, Pid} ->
@@ -60,7 +66,7 @@ stop(_State) ->
 %%% Internal functions
 %%%===================================================================
 ensure_contact() ->
-    DefaultNodes = ['contact1@stan2', 'contact2@adminserver'],
+    DefaultNodes = ['contact1@stan2', 'contact2@erlang1'],
     case get_env(simple_cache, contact_nodes, DefaultNodes) of
 	[] ->
 	    {error, no_contact_nodes};

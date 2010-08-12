@@ -11,6 +11,6 @@
 	     sc_event_logger
             ]},
   {registered, [sc_sup]},
-  {applications, [kernel, sasl, stdlib]},
+  {applications, [kernel, sasl, stdlib, resource_discovery]},
   {mod, {sc_app, []}}
  ]}.
