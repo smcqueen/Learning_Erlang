@@ -41,4 +41,4 @@ delete(Key) ->
 
 list_keys() ->
     sc_store:list_keys().
-    
+

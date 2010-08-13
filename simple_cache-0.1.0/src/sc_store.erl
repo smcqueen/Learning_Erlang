@@ -21,7 +21,7 @@ init() ->
     dynamic_db_init(lists:delete(node(), CacheNodes)).
 
 list_keys() ->
-    mnesia:all_keys(?TABLE).
+    mnesia:dirty_all_keys(?TABLE).
 
 insert(Key, Pid) ->
     mnesia:dirty_write(#?TABLE{key = Key, pid = Pid}).

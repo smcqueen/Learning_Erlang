@@ -1,3 +1,5 @@
+*.boot
+*.script
 *~
 *.beam
 Servers
