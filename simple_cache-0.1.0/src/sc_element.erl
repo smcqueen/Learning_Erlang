@@ -23,7 +23,7 @@
 	 terminate/2, code_change/3]).
 
 -define(SERVER, ?MODULE). 
--define(DEFAULT_LEASE_TIME, (60 * 60 * 24)).
+-define(DEFAULT_LEASE_TIME, (60)). % * 60 * 24)).
 
 -record(state, {value, lease_time, start_time}).
 

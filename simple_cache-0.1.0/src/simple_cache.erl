@@ -3,7 +3,8 @@
 -export([
 	 insert/2,
 	 lookup/1,
-	 delete/1
+	 delete/1,
+	 list_keys/0
 	]).
 
 insert(Key, Value) ->
@@ -37,3 +38,7 @@ delete(Key) ->
 	{error, _Reason} ->
 	    ok
     end.
+
+list_keys() ->
+    sc_store:list_keys().
+    

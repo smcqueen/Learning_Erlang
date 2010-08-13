@@ -4,7 +4,8 @@
 	 init/0,
 	 insert/2,
 	 delete/1,
-	 lookup/1
+	 lookup/1,
+	 list_keys/0
 	]).
 
 -define(TABLE_ID, ?MODULE).
@@ -18,6 +19,9 @@ init() ->
     mnesia:start(),
     {ok, CacheNodes} = resource_discovery:fetch_resources(simple_cache),
     dynamic_db_init(lists:delete(node(), CacheNodes)).
+
+list_keys() ->
+    mnesia:all_keys(?TABLE).
 
 insert(Key, Pid) ->
     mnesia:dirty_write(#?TABLE{key = Key, pid = Pid}).
@@ -35,7 +39,7 @@ lookup(Key) ->
 
 delete(Pid) ->
     try
-	[#key_to_pid{} = Record] = mnesia:dirty_index_read(key_to_pid,Pid, #key_to_pid.pid),
+	[#key_to_pid{} = Record] = mnesia:dirty_index_read(?TABLE,Pid, #?TABLE.pid),
 	mnesia:dirty_delete_object(Record)
     catch
 	_C:_E ->
@@ -44,9 +48,9 @@ delete(Pid) ->
 
 dynamic_db_init([]) ->
     mnesia:create_table(
-      key_to_pid,
+      ?TABLE,
       [{index, [pid]},
-       {attributes, record_info(fields, key_to_pid)}]);
+       {attributes, record_info(fields, ?TABLE)}]);
 dynamic_db_init(CacheNodes) ->
     add_extra_nodes(CacheNodes).
 

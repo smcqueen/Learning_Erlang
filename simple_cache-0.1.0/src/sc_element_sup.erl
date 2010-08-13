@@ -61,8 +61,8 @@ start_child(Key, Value) ->
 %%--------------------------------------------------------------------
 init([]) ->
     RestartStrategy = simple_one_for_one,
-    MaxRestarts = 0,
-    MaxSecondsBetweenRestarts = 1,
+    MaxRestarts = 1000,
+    MaxSecondsBetweenRestarts = 3600,
 
     SupFlags = {RestartStrategy, MaxRestarts, MaxSecondsBetweenRestarts},
 
