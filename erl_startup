@@ -1,0 +1,6 @@
+#!/bin/bash
+PROJROOT="/home/smcqueen/projects/Learning_Erlang"
+PROJ1="${PROJROOT}/resource_discovery-0.1.0/ebin"
+PROJ2="${PROJROOT}/simple_cache-0.1.0/ebin"
+erl -pa ${PROJ1} ${PROJ2} -boot start_sasl -sname home
+
