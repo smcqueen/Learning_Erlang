@@ -9,8 +9,8 @@
 
 -define(TABLE_ID, ?MODULE).
 -define(WAIT_FOR_TABLES, 5000).
-
--record(key_to_pid, {key, pid}).
+-define(TABLE, key_to_pid).
+-record(?TABLE, {key, pid}).
 
 init() ->
     mnesia:stop(),
@@ -20,12 +20,15 @@ init() ->
     dynamic_db_init(lists:delete(node(), CacheNodes)).
 
 insert(Key, Pid) ->
-    mnesia:dirty_write(#key_to_pid{key = Key, pid = Pid}).
+    mnesia:dirty_write(#?TABLE{key = Key, pid = Pid}).
 
 lookup(Key) ->
-    case mnesia:dirty_read(key_to_pid, Key) of
-	[{keu_to_pid, Key, Pid}] ->
-	    {ok, Pid};
+    case mnesia:dirty_read(?TABLE, Key) of
+	[{?TABLE, Key, Pid}] ->
+	    case is_pid_alive(Pid) of
+		true -> {ok, Pid};
+		false -> {error, not_found}
+	    end;
 	[] ->
 	    {error, not_found}
     end.
@@ -56,4 +59,21 @@ add_extra_nodes([Node|T]) ->
 	    mnesia:wait_for_tables(Tables, ?WAIT_FOR_TABLES);
 	_ ->
 	    add_extra_nodes(T)
+    end.
+
+is_pid_alive(Pid) when node(Pid) =:= node() ->
+    is_process_alive(Pid);
+is_pid_alive(Pid) ->
+    case lists:member(node(Pid), nodes()) of
+        false ->
+            false;
+        true ->
+            case rpc:call(node(Pid), erlang, is_process_alive, [Pid]) of
+                true ->
+                    true;
+                false ->
+                    false;
+                {badrpc, _Reason} ->
+                    false
+            end
     end.
