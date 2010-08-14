@@ -1,0 +1,7 @@
+{release,{"resource_discovery","0.1.0.0"},
+         {erts,"5.8"},
+         [{eunit,"2.1.5"},
+          {kernel,"2.14"},
+          {resource_discovery,"0.1.0"},
+          {sasl,"2.1.9.2"},
+          {stdlib,"1.17"}]}.

@@ -1,0 +1,10 @@
+{control,"portius",
+         [{package_owner,"Stan McQueen"},
+          {package_owner_email,"stan.mcqueen@gmail.com"},
+          {categories,["server","tool"]},
+          {description,"Simple distributed key-value cache"},
+          {author,"Stan McQueen"},
+          {authors_email,"stan.mcqueen@gmail.com"},
+          {keywords,["erlware","otp","repo","repository"]}]}.
+
+
