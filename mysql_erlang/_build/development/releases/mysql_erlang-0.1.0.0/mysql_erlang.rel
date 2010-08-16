@@ -1,0 +1,8 @@
+{release,{"mysql_erlang","0.1.0.0"},
+         {erts,"5.8"},
+         [{crypto,"2.0"},
+          {eunit,"2.1.5"},
+          {kernel,"2.14"},
+          {mysql_erlang,"0.1.0"},
+          {sasl,"2.1.9.2"},
+          {stdlib,"1.17"}]}.

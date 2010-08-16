@@ -1,0 +1,4 @@
+{application,mysql_erlang}.
+{packages,[]}.
+{modules,[mysql_erlang_app,mysql_erlang_auth,mysql_erlang_conn,
+          mysql_erlang_recv,mysql_erlang_sup]}.
