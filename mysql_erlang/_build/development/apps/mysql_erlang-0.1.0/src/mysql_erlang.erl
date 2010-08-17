@@ -75,9 +75,10 @@
 %% @type query_result = {data, mysql_result()} | {updated, mysql_result()} |
 %%   {error, mysql_result()}
 
-
 %% External exports
--export([start_link/5,
+-export([
+	 start_link/0,  %% added by SEM
+	 start_link/5,
 	 start_link/6,
 	 start_link/7,
 	 start_link/8,
@@ -114,7 +115,8 @@
 
 	 encode/1,
 	 encode/2,
-	 asciz_binary/2
+	 asciz_binary/2,
+	 init2/1
 	]).
 
 %% Internal exports - just for mysql_* modules
@@ -147,22 +149,34 @@
 	 }).
 
 -record(state, {
-	  %% gb_tree mapping connection
-	  %% pool id to a connection pool tuple
-	  conn_pools = gb_trees:empty(), 
-	                
+	  conn_pools,
+	  pids_pools,
+	  log_fun,
+	  prepares
+	  }).
 
-	  %% gb_tree mapping connection Pid
-	  %% to pool id
-	  pids_pools = gb_trees:empty(), 
-	                                 
-	  %% function for logging,
-	  log_fun,	
+init([]) ->
+    {ok, #state{conn_pools = gb_trees:empty(),
+		pids_pools = gb_trees:empty(),
+		prepares   = gb_trees:empty()}}.
 
 
-	  %% maps names to {Statement::binary(), Version::integer()} values
-	  prepares = gb_trees:empty()
-	 }).
+%%-record(state, {
+%%	  %% gb_tree mapping connection
+%%	  %% pool id to a connection pool tuple
+%%	  conn_pools = gb_trees:empty(), 
+%%
+%%
+%%	  %% gb_tree mapping connection Pid
+%%	  %% to pool id
+%%	  pids_pools = gb_trees:empty(), 
+%%	                                 
+%%	  %% function for logging,
+%%	  log_fun,	
+%%
+%%	  %% maps names to {Statement::binary(), Version::integer()} values
+%%	  prepares = gb_trees:empty()
+%%	 }).
 
 %% Macros
 -define(SERVER, mysql_dispatcher).
@@ -186,6 +200,14 @@ log(Module, Line, _Level, FormatFun) ->
     {Format, Arguments} = FormatFun(),
     io:format("~w:~b: "++ Format ++ "~n", [Module, Line] ++ Arguments).
 
+%%--------------------------------------------------------------------
+%% @doc Starts the server
+%% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+start_link() ->
+    io:format("Entering ~p~n", [?MODULE]),
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 %% External functions
 
@@ -489,7 +511,7 @@ connect(PoolId, Host, undefined, User, Password, Database, Reconnect) ->
 
 %% gen_server callbacks
 
-init([PoolId, Host, Port, User, Password, Database, LogFun, Encoding]) ->
+init2([PoolId, Host, Port, User, Password, Database, LogFun, Encoding]) ->
     LogFun1 = if LogFun == undefined -> fun log/4; true -> LogFun end,
     case mysql_conn:start(Host, Port, User, Password, Database, LogFun1,
 			  Encoding, PoolId) of

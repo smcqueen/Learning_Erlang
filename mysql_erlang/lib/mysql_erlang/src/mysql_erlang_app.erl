@@ -33,6 +33,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start(_StartType, _StartArgs) ->
+    io:format("Entering ~p~n", [?MODULE]),
     case mysql_erlang_sup:start_link() of
         {ok, Pid} ->
             {ok, Pid};
