@@ -1,12 +1,11 @@
-%%%-------------------------------------------------------------------
-%%% @author Stan McQueen <smcqueen@ubuntu910.bluffdale.iaccess.com>
-%%% @copyright (C) 2010, Stan McQueen
+%%%----------------------------------------------------------------
+%%% @author Stan McQueen <stan.mcqueen@gmail.com>
 %%% @doc
-%%% This is the application module for the tcp_rpc application.
+%%%
 %%% @end
-%%% Created :  9 Aug 2010 by Stan McQueen <smcqueen@ubuntu910.bluffdale.iaccess.com>
-%%%-------------------------------------------------------------------
--module(resource_discovery_app).
+%%% @copyright 2010 Stan McQueen
+%%%----------------------------------------------------------------,
+-module(cwmaint_app).
 
 -behaviour(application).
 
@@ -18,6 +17,7 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
+%% @private
 %% @doc
 %% This function is called whenever an application is started using
 %% application:start/[1,2], and should start the processes of the
@@ -33,14 +33,15 @@
 %% @end
 %%--------------------------------------------------------------------
 start(_StartType, _StartArgs) ->
-    case resource_discovery_sup:start_link() of
-	{ok, Pid} ->
-	    {ok, Pid};
-	Error ->
-	    {error, Error}
+    case cwmaint_sup:start_link() of
+        {ok, Pid} ->
+            {ok, Pid};
+        Error ->
+            Error
     end.
 
 %%--------------------------------------------------------------------
+%% @private
 %% @doc
 %% This function is called whenever an application has stopped. It
 %% is intended to be the opposite of Module:start/2 and should do
@@ -55,3 +56,5 @@ stop(_State) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+

@@ -1,12 +1,10 @@
-%%%-------------------------------------------------------------------
-%%% @author Stan McQueen <smcqueen@ubuntu910.bluffdale.iaccess.com>
-%%% @copyright (C) 2010, Stan McQueen
+%%%----------------------------------------------------------------
+%%% @author  Stan McQueen <stan.mcqueen@gmail.com>
 %%% @doc
-%%% This is the supervisor for the tcp_rpc application.
 %%% @end
-%%% Created :  9 Aug 2010 by Stan McQueen <smcqueen@ubuntu910.bluffdale.iaccess.com>
-%%%-------------------------------------------------------------------
--module(resource_discovery_sup).
+%%% @copyright 2010 Stan McQueen
+%%%----------------------------------------------------------------
+-module(cwmaint_sup).
 
 -behaviour(supervisor).
 
@@ -37,6 +35,7 @@ start_link() ->
 %%%===================================================================
 
 %%--------------------------------------------------------------------
+%% @private
 %% @doc
 %% Whenever a supervisor is started using supervisor:start_link/[2,3],
 %% this function is called by the new process to find out about
@@ -50,8 +49,8 @@ start_link() ->
 %%--------------------------------------------------------------------
 init([]) ->
     RestartStrategy = one_for_one,
-    MaxRestarts = 10, % for development
-    MaxSecondsBetweenRestarts = 60, % for development
+    MaxRestarts = 1000,
+    MaxSecondsBetweenRestarts = 3600,
 
     SupFlags = {RestartStrategy, MaxRestarts, MaxSecondsBetweenRestarts},
 
@@ -59,11 +58,13 @@ init([]) ->
     Shutdown = 2000,
     Type = worker,
 
-    AChild = {resource_discovery, {resource_discovery, start_link, []},
-	      Restart, Shutdown, Type, [resource_discovery]},
+    AChild = {'AName', {'AModule', start_link, []},
+              Restart, Shutdown, Type, ['AModule']},
 
     {ok, {SupFlags, [AChild]}}.
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+
