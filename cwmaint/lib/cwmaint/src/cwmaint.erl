@@ -2,44 +2,47 @@
 
 -export([do_maintenance/0]).
 
--record(state, {tablename, idlist}).
+-record(state, {idlist}).
+
+-define(MAX, "1000").
+-define(AGE, 30).
 
 mylog(_A, _B, _C, _D) ->
     ok.
 
 do_maintenance() ->
+    State = #state{},
     Now = calendar:local_time(),
-%    AllRows = [[1,{datetime,{{2007,10,24},{14,5,44}}}],
-% [2,{datetime,{{2007,10,24},{14,6,7}}}],
-% [3,{datetime,{{2007,10,24},{14,6,9}}}]],
-%    process_rows(Now, AllRows).
-    mysql:start_link(db, "dbserver", "masteruser", "mast3rus3r", "relay"),
+    mysql:start_link(db, "dbserver", "masteruser", "mast3rus3r", "prorelay"),
     {data, Result} = mysql:fetch(db, "select orgid from companies"),
     Tablelist = mysql:get_result_rows(Result),
     io:format("Got ~p orgids~n", [length(Tablelist)]),
-    process_tables(Now, Tablelist).
+    process_tables(Now, Tablelist, State).
 
-process_tables(_Now, []) ->
+process_tables(_Now, [], _State) ->
     ok;
-process_tables(Now, List) ->
+process_tables(Now, List, State) ->
     [H|T] = List,
     [Orgid|_] = H,
     Table = "activity" ++ integer_to_list(Orgid),
-    Select = "select activityid, createdatetime from " ++ Table ++ " order by createdatetime desc limit 1000",
+    Select = "select activityid, createdatetime from " ++ Table ++ " order by createdatetime desc limit " ++ ?MAX,
     case (mysql:fetch(db, Select)) of
 	{data, MysqlRes} ->
-%	    io:format("~p~n", [Result]),
+	    Idlist=State#state.idlist,
+	    case Idlist of
+		undefined ->
+		    NewState = State#state{idlist=Orgid};
+		_ ->
+		    NewState = State#state{idlist=[Orgid | Idlist]}
+	    end,
+	    io:format("~p~n", [NewState]),
 	    AllRows = mysql:get_result_rows(MysqlRes),
-%	    io:format("~p~n", [AllRows]),
-	    io:format("Table ~p~n", [Table]),
-	    #state{tablename = Table, idlist = []},
-	    io:format("~p~n", [#state{}]),
-	    process_rows(Now,AllRows,Table),
-	    process_tables(Now, T);
+	    process_rows(Now, AllRows, Table);
 	{error, _Error} ->
-%	    io:format("~p~n", [Error]),
-	    process_tables(Now, T)
-    end.
+	    NewState = State,
+	    ok
+    end,
+    process_tables(Now, T, NewState).
 
 process_rows(_Now, [], Table) ->
     ok;
@@ -49,14 +52,14 @@ process_rows(Now, AllRows, Table) ->
     [D1|_] = D,
     {datetime, Datetime} = D1,
     Age = age(Now, Datetime),
-    case Age > 5 of
+    case Age > ?AGE of
 	true ->
 	    io:format("Activityid = ~p, DateTime = ~p", [Activityid, Datetime]),
-	    io:format(", Age = ~p days~n", [Age]),
-	    process_rows(Now, T, Table);
+	    io:format(", Age = ~p days~n", [Age]);
 	false ->
-	    process_rows(Now, T, Table)
-    end.
+	    ok
+    end,
+    process_rows(Now, T, Table).
 
 age(Now, Then) ->
 %    io:format("age received (~p,~p)~n", [Now, Then]),
