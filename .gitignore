@@ -1,3 +1,5 @@
+*.gz
+_build
 *.boot
 *.script
 *~
