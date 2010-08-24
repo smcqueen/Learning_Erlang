@@ -1,21 +1,29 @@
 %%%-------------------------------------------------------------------
-%%% @author Stan McQueen <smcqueen@gandalf>
+%%% @author Stan McQueen <smcqueen@ubuntu910.bluffdale.iaccess.com>
 %%% @copyright (C) 2010, Stan McQueen
 %%% @doc
 %%%
 %%% @end
-%%% Created : 19 Aug 2010 by Stan McQueen <smcqueen@gandalf>
+%%% Created : 24 Aug 2010 by Stan McQueen <smcqueen@ubuntu910.bluffdale.iaccess.com>
 %%%-------------------------------------------------------------------
--module(cwmaint_srv).
+-module(cwm_act).
 
 -behaviour(gen_server).
+
+-include("cwmaint.hrl").
 
 %% API
 -export([start_link/0]).
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+-export([
+	 init/1,
+	 handle_call/3,
+	 handle_cast/2,
+	 handle_info/2,
+	 terminate/2,
+	 code_change/3
+	]).
 
 -define(SERVER, ?MODULE). 
 
@@ -40,9 +48,12 @@ start_link() ->
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @private
 %% @doc
-%% Initiates the server
+%% Immediately returns signaling a timeout of 0, using the same trick
+%% as in Chapter 3 of "Erlang and OTP in Action" (see listings 3.4 and
+%% 3.5) to finish the startup without keeping the caller of init/1
+%% waiting: the 0 timeout causes the new gen_server process to drop
+%% immediately into the timeout clause of handle_info/2.
 %%
 %% @spec init(Args) -> {ok, State} |
 %%                     {ok, State, Timeout} |
@@ -51,7 +62,7 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-    {ok, #state{}}.
+    {ok, #state{}, 0}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -85,16 +96,16 @@ handle_cast(_Msg, State) ->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
-%% @private
 %% @doc
-%% Handling all non call/cast messages
+%% Enter the processing loop
 %%
 %% @spec handle_info(Info, State) -> {noreply, State} |
 %%                                   {noreply, State, Timeout} |
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(_Info, State) ->
+handle_info(timeout, State) ->
+    loop(),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -125,3 +136,34 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @doc
+%% 1. Get a list of orgids from the database
+%% 2. Find out which ones have activity tables
+%% 3. Insert a key, value into the simple_cache with the list of orgids
+%% 4. Call cwmaint_sup:start_child(?ACTCHILD)to process an orgid (each
+%%    ACTCHILD will call cwmaint_sup:start_child again 
+%% 5. Sleep for ?DELAY_TIME seconds and then do it all over again.
+%% @spec
+%% @end
+%%--------------------------------------------------------------------
+loop() ->
+    %% get list of orgids
+
+    %% get activity tables
+
+    %% call simple_cache:insert
+
+    %% generate ACTCHILD process
+    io:format("~p: Running as pid ~p~n", [?MODULE, self()]),
+
+    timer:sleep(7000),
+
+    io:format("~p: Calling supervisor to start another activity table processor~n", [?MODULE]),
+    ChildSpec = {cwm_act2, {cwm_act, start_link, []},
+		temporary, brutal_kill, worker, [cwm_act]},
+    cwmaint_sup:start_child(ChildSpec),
+
+
+    loop().
