@@ -75,7 +75,7 @@ stop(_State) ->
 %%% Internal functions
 %%%===================================================================
 ensure_contact() ->
-    DefaultNodes = ['contact1@buildserver3', 'contact2@buildserver3'],
+    DefaultNodes = ['contact1@gandalf', 'contact2@gandalf'],
     case get_env(cwmaint, contact_nodes, DefaultNodes) of
 	[] ->
 	    {error, no_contact_nodes};

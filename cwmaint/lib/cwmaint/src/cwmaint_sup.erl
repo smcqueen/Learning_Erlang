@@ -31,11 +31,16 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link(Master) ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, [Master]).
+    io:format("~p: Entering start_link(~p)~n", [?MODULE,Master]),
+    io:format("~p: Calling supervisor:start_link/3~n", [?MODULE]),
+    supervisor:start_link({local, ?SERVER}, ?MODULE, [Master]),
+    io:format("~p: Calling supervisor:start_child/2~n",[?MODULE]),
+    supervisor:start_child(?MODULE, [Master]).
 
-start_child(ChildSpec) ->
-    io:format("~p: Calling supervisor:start_child(~p)~n", [?MODULE, ChildSpec]),
-    io:format("~p~n", [supervisor:start_child(?MODULE, ChildSpec)]).
+%% Master is true | false
+start_child(Master) ->
+    io:format("~p: Calling supervisor:start_child(~p, [~p])~n", [?MODULE, ?MODULE, Master]),
+    io:format("~p~n", [supervisor:start_child(?MODULE, [Master])]).
 
 %%%===================================================================
 %%% Supervisor callbacks
@@ -54,24 +59,23 @@ start_child(ChildSpec) ->
 %%                     {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([Master]) ->
-    %% We wouldn't normally have actual code in the supervisor
-    io:format("cwmaint_srv starting up...~n"),
-    RestartStrategy = one_for_one,
-    MaxRestarts = 100,
-    MaxSecondsBetweenRestarts = 3600,
+init(Master) ->
+    io:format("~p: Entering init(~p)~n", [?MODULE, Master]),
+    RestartStrategy = simple_one_for_one,
+    MaxRestarts = 0,
+    MaxSecondsBetweenRestarts = 1,
 
     SupFlags = {RestartStrategy, MaxRestarts, MaxSecondsBetweenRestarts},
 
-		
-    case Master of
-	true ->
-	    io:format("This is the master instance; get the list of orgs~n"),
-	    {ok, {SupFlags, [?ORGCHILD]}};
-	false ->
-	    io:format("This is not the master instance; check the cache for a list of orgs~n"),
-	    {ok, {SupFlags, [?ACTCHILD]}}
-    end.
+%    case Master of
+%	true ->
+%	    io:format("This is the master instance; get the list of orgs~n"),
+	    {ok, {SupFlags, [{cwm_org, {cwm_org, start_link, [Master]},
+		temporary, brutal_kill, worker, [cwm_org]}]}}.
+%	false ->
+%	    io:format("This is not the master instance; check the cache for a list of orgs~n"),
+%	    {ok, {SupFlags, [?ACTCHILD]}}
+%    end.
 		
 
 %%%===================================================================

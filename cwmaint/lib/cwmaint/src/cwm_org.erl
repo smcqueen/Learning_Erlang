@@ -13,7 +13,7 @@
 -include("cwmaint.hrl").
 
 %% API
--export([start_link/0]).
+-export([start_link/1]).
 
 %% gen_server callbacks
 -export([
@@ -27,7 +27,7 @@
 
 -define(SERVER, ?MODULE). 
 
--record(state, {}).
+-record(state, {master}).
 
 %%%===================================================================
 %%% API
@@ -40,8 +40,9 @@
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+start_link(Master) ->
+    io:format("~p: Entering start_link(~p)~n", [?MODULE, Master]),
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [Master], []).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -61,8 +62,9 @@ start_link() ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([]) ->
-    {ok, #state{}, 0}.
+init([Master]) ->
+    io:format("~p: Entering init(~p)~n", [?MODULE, Master]),
+    {ok, #state{master = Master}, 0}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -105,8 +107,9 @@ handle_cast(_Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(timeout, State) ->
+    io:format("~p: Entering handle_info(~p, ~p)~n", [?MODULE, timeout, State]),
     io:format("~p: Calling supervisor to start activity table processor~n", [?MODULE]),
-    cwmaint_sup:start_child(?ACTCHILD),
+    cwmaint_sup:start_child(false),
 %    loop(),
     {noreply, State}.
 
