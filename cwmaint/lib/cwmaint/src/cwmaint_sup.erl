@@ -12,7 +12,6 @@
 
 %% API
 -export([start_link/1,
-	 start_child/1,
 	 start_child/0
 	]).
 
@@ -36,20 +35,20 @@ start_link(Master) ->
     io:format("~p: Entering start_link(~p)~n", [?MODULE,Master]),
     io:format("~p: Calling supervisor:start_link/3~n", [?MODULE]),
     supervisor:start_link({local, ?SERVER}, ?MODULE, [Master]),
-    io:format("~p: Calling supervisor:start_child(~p, [~p])~n",[?MODULE, ?MODULE, Master]),
-    supervisor:start_child(?MODULE, [Master]),
-    io:format("~p: Calling supervisor:start_child(~p, [])~n",[?MODULE, ?MODULE]),
-    supervisor:start_child(?MODULE, []),
-    io:format("~p: Calling supervisor:start_child(~p, [])~n",[?MODULE, ?MODULE]),
-    supervisor:start_child(?MODULE, []).
+%    io:format("~p: Calling supervisor:start_child(~p, [~p])~n",[?MODULE, ?MODULE, Master]),
+%    supervisor:start_child(?MODULE, [Master]),
+%    io:format("~p: Calling supervisor:start_child(~p, [])~n",[?MODULE, ?MODULE]),
+%    supervisor:start_child(?MODULE, []),
+%    io:format("~p: Calling supervisor:start_child(~p, [])~n",[?MODULE, ?MODULE]),
+%    supervisor:start_child(?MODULE, []).
 
 %% Master is true | false
-start_child(Master) ->
-    io:format("~p: Calling supervisor:start_child(~p, [~p])~n", [?MODULE, ?MODULE, Master]),
-    supervisor:start_child(?MODULE, [Master]).
+%start_child(Master) ->
+%    io:format("~p: Calling supervisor:start_child(~p, [~p])~n", [?MODULE, ?MODULE, Master]),
+%    supervisor:start_child(?MODULE, [Master]).
 
 start_child() ->
-    supervisor:start_child(?MODULE, []).
+    supervisor:start_child(?SERVER, []).
     
 %%%===================================================================
 %%% Supervisor callbacks
@@ -68,23 +67,13 @@ start_child() ->
 %%                     {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init(Master) ->
+init([Master]) ->
     io:format("~p: Entering init(~p)~n", [?MODULE, Master]),
-    RestartStrategy = simple_one_for_one,
-    MaxRestarts = 0,
-    MaxSecondsBetweenRestarts = 1,
-
-    SupFlags = {RestartStrategy, MaxRestarts, MaxSecondsBetweenRestarts},
-
-%    case Master of
-%	true ->
-%	    io:format("This is the master instance; get the list of orgs~n"),
-	    {ok, {SupFlags, [{cwm_org, {cwm_org, start_link, []},
-		temporary, brutal_kill, worker, [cwm_org]}]}}.
-%	false ->
-%	    io:format("This is not the master instance; check the cache for a list of orgs~n"),
-%	    {ok, {SupFlags, [?ACTCHILD]}}
-%    end.
+    Server = {cwm_org, {cwm_org, start_link, [Master]},
+	      temporary, brutal_kill, worker, [cwm_org]},
+    Children = [Server],
+    RestartStrategy = {simple_one_for_one, 0, 0},
+    {ok, {RestartStrategy, Children}}.
 		
 
 %%%===================================================================
