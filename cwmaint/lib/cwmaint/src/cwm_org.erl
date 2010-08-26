@@ -13,7 +13,7 @@
 -include("cwmaint.hrl").
 
 %% API
--export([start_link/1]).
+-export([start_link/0, start_link/1]).
 
 %% gen_server callbacks
 -export([
@@ -43,6 +43,9 @@
 start_link(Master) ->
     io:format("~p: Entering start_link(~p)~n", [?MODULE, Master]),
     gen_server:start_link({local, ?SERVER}, ?MODULE, [Master], []).
+
+start_link() ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -108,8 +111,8 @@ handle_cast(_Msg, State) ->
 %%--------------------------------------------------------------------
 handle_info(timeout, State) ->
     io:format("~p: Entering handle_info(~p, ~p)~n", [?MODULE, timeout, State]),
-    io:format("~p: Calling supervisor to start activity table processor~n", [?MODULE]),
-    cwmaint_sup:start_child(false),
+%    io:format("~p: Calling supervisor to start activity table processor~n", [?MODULE]),
+%    cwmaint_sup:start_child(),
 %    loop(),
     {noreply, State}.
 
