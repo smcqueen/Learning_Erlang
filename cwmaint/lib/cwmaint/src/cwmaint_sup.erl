@@ -12,7 +12,8 @@
 
 %% API
 -export([start_link/1,
-	 start_child/0
+	 start_child/0,
+	 start_child/1
 	]).
 
 %% Supervisor callbacks
@@ -32,24 +33,21 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link(Master) ->
-    io:format("~p: Entering start_link(~p)~n", [?MODULE,Master]),
-    io:format("~p: Calling supervisor:start_link/3~n", [?MODULE]),
-    supervisor:start_link({local, ?SERVER}, ?MODULE, [Master]),
-%    io:format("~p: Calling supervisor:start_child(~p, [~p])~n",[?MODULE, ?MODULE, Master]),
-%    supervisor:start_child(?MODULE, [Master]),
-%    io:format("~p: Calling supervisor:start_child(~p, [])~n",[?MODULE, ?MODULE]),
-%    supervisor:start_child(?MODULE, []),
-%    io:format("~p: Calling supervisor:start_child(~p, [])~n",[?MODULE, ?MODULE]),
-%    supervisor:start_child(?MODULE, []).
-
-%% Master is true | false
-%start_child(Master) ->
-%    io:format("~p: Calling supervisor:start_child(~p, [~p])~n", [?MODULE, ?MODULE, Master]),
-%    supervisor:start_child(?MODULE, [Master]).
+%    io:format("~p: Entering start_link()~n", [?MODULE]),
+%    io:format("~p: Calling supervisor:start_link(~p, ~p, [~p])~n", [?MODULE,
+%								 {local, ?SERVER},
+%								 ?MODULE,
+%								 Master]),
+    supervisor:start_link({local, ?SERVER}, ?MODULE, [Master]).
 
 start_child() ->
+%    io:format("~p: Entering start_child()~n", [?MODULE]),
     supervisor:start_child(?SERVER, []).
     
+start_child(IsMaster) ->
+%    io:format("~p: Entering start_child(~p)~n", [?MODULE, IsMaster]),
+    supervisor:start_child(?SERVER, [IsMaster]).
+
 %%%===================================================================
 %%% Supervisor callbacks
 %%%===================================================================
@@ -67,12 +65,12 @@ start_child() ->
 %%                     {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([Master]) ->
-    io:format("~p: Entering init(~p)~n", [?MODULE, Master]),
-    Server = {cwm_org, {cwm_org, start_link, [Master]},
+init(_Args) ->
+%    io:format("~p: Entering init()~n", [?MODULE]),
+    Server = {cwm_org, {cwm_org, start_link, []},
 	      temporary, brutal_kill, worker, [cwm_org]},
     Children = [Server],
-    RestartStrategy = {simple_one_for_one, 0, 0},
+    RestartStrategy = {simple_one_for_one, 0, 1},
     {ok, {RestartStrategy, Children}}.
 		
 

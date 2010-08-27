@@ -53,10 +53,39 @@ start(_StartType, _StartArgs) ->
     end,
     case cwmaint_sup:start_link(Master) of
         {ok, Pid} ->
-            {ok, Pid};
-        Error ->
-            Error
+	    start_children(Master, 5),
+	    {ok, MasterPid} = simple_cache:lookup(masterPid),
+	    {ok, OrgList} = gen_server:call(MasterPid, get_list),
+	    {ok, SlavePid} = simple_cache:lookup(slavePid),
+	    AllModules = [MasterPid | SlavePid],
+	    process(AllModules, fun getOrgList/1),
+	    process(AllModules, fun startProcessing/2, OrgList),
+%	    processSlaves(fun getOrgList/1),
+	    {ok, Pid};
+	Error ->
+	    Error
     end.
+
+process(List, F) ->
+    F(List).
+
+process(List, F, Param) ->
+    F(List, Param).
+
+startProcessing([], [_OrgID|_T2]) ->
+    ok;
+startProcessing([_Pid|_T1], []) ->
+    ok;
+startProcessing([Pid|T1], [OrgID|T2]) ->
+    io:format("Calling gen_server:cast(~p, {processOrg, ~p})~n", [Pid, OrgID]),
+    gen_server:cast(Pid, {processOrg, OrgID}),
+    startProcessing(T1, T2).
+
+getOrgList([]) ->
+    ok;
+getOrgList([Pid|T])->
+    io:format("Org list = ~p~n", [gen_server:call(Pid, get_list)]),
+    getOrgList(T).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -119,4 +148,50 @@ get_env(AppName, Key, Default) ->
 	{ok, Value} ->
 	    Value
     end.
+
+start_children(_Master, 0) ->
+%    io:format("~p: start_children(~p, 0) ... terminating~n", [?MODULE, Master]),
+    ok;
+start_children(Master, Count) ->
+%    io:format("~p: start_children(~p, ~p)~n", [?MODULE, Master, Count]),
+    case cwmaint_sup:start_child(Master) of
+	{ok, ChildPid} ->
+%	    io:format("~p: cwmaint_sup:start_child(~p) returned {ok, ~p}~n",
+%		      [?MODULE, Master, ChildPid]),
+	    case Master of
+		true ->
+		    simple_cache:insert(masterPid, ChildPid);
+		false ->
+		    case simple_cache:lookup(slavePid) of
+			{ok, Pidlist} ->
+			    simple_cache:insert(slavePid, [ChildPid | Pidlist]);
+%			    io:format("~p~n", [simple_cache:lookup(slavePid)]);
+			_ ->
+			    simple_cache:insert(slavePid, [ChildPid])
+		    end
+	    end;
+
+	{ok, ChildPid, _Info} ->
+%	    io:format("~p: cwmaint_sup:start_child(~p) returned {ok, ~p, ~p}~n",
+%		      [?MODULE, Master, ChildPid, Info]),
+	    case Master of
+		true ->
+		    simple_cache:insert(masterPid, ChildPid);
+
+		false ->
+		    case simple_cache:lookup(slavePid) of
+			{ok, Pidlist} ->
+			    simple_cache:insert(slavePid, [ChildPid | Pidlist]);
+			_ ->
+			    simple_cache:insert(slavePid, [ChildPid])
+		    end
+	    end;
+
+	{error, already_present} ->
+	    io:format("~p: cwmaint_sup:start_child(~p) returned {error, already_present}", [?MODULE, Master]);
+		
+	{error, {already_started, ChildPid}} ->
+	    io:format("~p: cwmaint_sup:start_child(~p) returned {error, {already_started, ~p}}", [?MODULE, Master, ChildPid])
+    end,
+    start_children(false, Count-1).
 

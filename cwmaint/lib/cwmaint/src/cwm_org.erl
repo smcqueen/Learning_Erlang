@@ -13,7 +13,11 @@
 -include("cwmaint.hrl").
 
 %% API
--export([start_link/0, start_link/1]).
+-export([
+	 start_link/1,
+	 get_list/0,
+	 processOrg/1
+	]).
 
 %% gen_server callbacks
 -export([
@@ -40,12 +44,16 @@
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(Master) ->
-    io:format("~p: Entering start_link(~p)~n", [?MODULE, Master]),
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [Master], []).
+start_link(IsMaster) ->
+%    io:format("~p(~p): Entering start_link(~p)~n", [?MODULE, self(), IsMaster]),
+    gen_server:start_link(?MODULE, [IsMaster], []).
 
-start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+get_list() ->
+%    io:format("~p(~p): Entering get_list()~n", [?MODULE, self()]),
+    gen_server:call(self(), get_list).
+
+processOrg(OrgID) ->
+    gen_server:cast(?SERVER, {processOrg, OrgID}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -65,9 +73,9 @@ start_link() ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([Master]) ->
-    io:format("~p: Entering init(~p)~n", [?MODULE, Master]),
-    {ok, #state{master = Master}, 0}.
+init([IsMaster]) ->
+%    io:format("~p(~p): Entering init([~p])~n", [?MODULE, self(), IsMaster]),
+    {ok, #state{master = IsMaster}, 0}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -83,9 +91,15 @@ init([Master]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(_Request, _From, State) ->
-    Reply = ok,
-    {reply, Reply, State}.
+handle_call(get_list, _From, State) ->
+%    io:format("~p(~p): Entering handle_call(get_list, _From, ~p)~n", [?MODULE, self(), State]),
+    case State#state.master of
+	true ->
+	    {reply, {ok, [1,2,3,4,5]}, State};
+	false ->
+	    {reply, {error, not_master}, State}
+    end.
+
 
 %%--------------------------------------------------------------------
 %% @private
@@ -97,7 +111,8 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast(_Msg, State) ->
+handle_cast({processOrg, OrgID}, State) ->
+    io:format("Processing org ~p~n", [OrgID]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -110,10 +125,7 @@ handle_cast(_Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(timeout, State) ->
-    io:format("~p: Entering handle_info(~p, ~p)~n", [?MODULE, timeout, State]),
-%    io:format("~p: Calling supervisor to start activity table processor~n", [?MODULE]),
-%    cwmaint_sup:start_child(),
-%    loop(),
+%    io:format("~p(~p): Entering handle_info(timeout, ~p)~n", [?MODULE, self(), State]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
