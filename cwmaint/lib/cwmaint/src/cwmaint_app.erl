@@ -58,7 +58,7 @@ start(_StartType, _StartArgs) ->
 	    {ok, OrgList} = gen_server:call(MasterPid, get_list),
 	    {ok, SlavePid} = simple_cache:lookup(slavePid),
 	    AllModules = [MasterPid | SlavePid],
-	    process(AllModules, fun getOrgList/1),
+%	    process(AllModules, fun getOrgList/1),
 	    process(AllModules, fun startProcessing/2, OrgList),
 %	    processSlaves(fun getOrgList/1),
 	    {ok, Pid};
@@ -72,6 +72,8 @@ process(List, F) ->
 process(List, F, Param) ->
     F(List, Param).
 
+startProcessing([], []) ->
+    ok;
 startProcessing([], [_OrgID|_T2]) ->
     ok;
 startProcessing([_Pid|_T1], []) ->
@@ -165,7 +167,6 @@ start_children(Master, Count) ->
 		    case simple_cache:lookup(slavePid) of
 			{ok, Pidlist} ->
 			    simple_cache:insert(slavePid, [ChildPid | Pidlist]);
-%			    io:format("~p~n", [simple_cache:lookup(slavePid)]);
 			_ ->
 			    simple_cache:insert(slavePid, [ChildPid])
 		    end

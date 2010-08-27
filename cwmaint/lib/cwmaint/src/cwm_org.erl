@@ -95,7 +95,15 @@ handle_call(get_list, _From, State) ->
 %    io:format("~p(~p): Entering handle_call(get_list, _From, ~p)~n", [?MODULE, self(), State]),
     case State#state.master of
 	true ->
-	    {reply, {ok, [1,2,3,4,5]}, State};
+	    {ok, ChildPid} = cwmaint_sup:start_child(false),
+	    case simple_cache:lookup(slavePid) of
+		{ok, Pidlist} ->
+		    simple_cache:insert(slavePid, [ChildPid | Pidlist]);
+		_ ->
+		    simple_cache:insert(slavePid, [ChildPid])
+	    end,
+	    
+	    {reply, {ok, [1,2,3,4,5,6]}, State};
 	false ->
 	    {reply, {error, not_master}, State}
     end.
