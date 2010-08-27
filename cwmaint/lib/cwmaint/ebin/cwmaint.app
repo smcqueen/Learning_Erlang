@@ -3,11 +3,13 @@
 {application, cwmaint, 
   [{description, "Perform maintenance on ContentWatch tables"},
    {vsn, "0.1.0"},
-   {modules, [cwmaint_app,
-              cwmaint_sup,
-	      cwmaint_srv]},
-   {registered,[cwmaint_sup]},
+   {modules, [cwm_app,
+              cwm_sup1,
+		    cwm_sup2,
+		    cwm_master,
+		    cwm_slave]},
+   {registered,[cwm_sup1]},
    {applications, [kernel, stdlib, sasl, simple_cache]},
-   {mod, {cwmaint_app,[]}},
+   {mod, {cwm_app,[]}},
    {start_phases, []}]}.
 
