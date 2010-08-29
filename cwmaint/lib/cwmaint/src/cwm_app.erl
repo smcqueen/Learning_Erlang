@@ -108,28 +108,28 @@ getSupervisor2Pid() ->
     ChildList = supervisor:which_children(cwm_sup1),
     extractPid(ChildList).
 
-process(List, F) ->
-    F(List).
+%process(List, F) ->
+%    F(List).
 
-process(List, F, Param) ->
-    F(List, Param).
+%process(List, F, Param) ->
+%    F(List, Param).
 
-startProcessing([], []) ->
-    ok;
-startProcessing([], [_OrgID|_T2]) ->
-    ok;
-startProcessing([_Pid|_T1], []) ->
-    ok;
-startProcessing([Pid|T1], [OrgID|T2]) ->
-    io:format("Calling gen_server:cast(~p, {processOrg, ~p})~n", [Pid, OrgID]),
-    gen_server:cast(Pid, {processOrg, OrgID}),
-    startProcessing(T1, T2).
+%startProcessing([], []) ->
+%    ok;
+%startProcessing([], [_OrgID|_T2]) ->
+%    ok;
+%startProcessing([_Pid|_T1], []) ->
+%    ok;
+%startProcessing([Pid|T1], [OrgID|T2]) ->
+%    io:format("Calling gen_server:cast(~p, {processOrg, ~p})~n", [Pid, OrgID]),
+%    gen_server:cast(Pid, {processOrg, OrgID}),
+%    startProcessing(T1, T2).
 
-getOrgList([]) ->
-    ok;
-getOrgList([Pid|T])->
-    io:format("Org list = ~p~n", [gen_server:call(Pid, get_list)]),
-    getOrgList(T).
+%getOrgList([]) ->
+%    ok;
+%getOrgList([Pid|T])->
+%    io:format("Org list = ~p~n", [gen_server:call(Pid, get_list)]),
+%    getOrgList(T).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -148,7 +148,7 @@ stop(_State) ->
 %%% Internal functions
 %%%===================================================================
 ensure_contact() ->
-    DefaultNodes = ['contact1@buildserver3', 'contact2@buildserver3'],
+    DefaultNodes = ['contact1@gandalf', 'contact2@gandalf'],
     case get_env(cwmaint, contact_nodes, DefaultNodes) of
 	[] ->
 	    {error, no_contact_nodes};
@@ -193,34 +193,30 @@ get_env(AppName, Key, Default) ->
 	    Value
     end.
 
-start_children(_Master, 0) ->
-    ok;
-start_children(Master, Count) ->
-    case cwmaint_sup:start_child(Master) of
-	{ok, ChildPid} ->
-	    case Master of
-		true ->
-		    simple_cache:insert(masterPid, ChildPid);
-		false ->
-		    registerPid(slavePid, ChildPid)
-	    end;
-
-	{ok, ChildPid, _Info} ->
-	    case Master of
-		true ->
-		    simple_cache:insert(masterPid, ChildPid);
-
-		false ->
-		    registerPid(slavePid, ChildPid)
-	    end;
-
-	{error, already_present} ->
-	    io:format("~p: cwmaint_sup:start_child(~p) returned {error, already_present}", [?MODULE, Master]);
-		
-	{error, {already_started, ChildPid}} ->
-	    io:format("~p: cwmaint_sup:start_child(~p) returned {error, {already_started, ~p}}", [?MODULE, Master, ChildPid])
-    end,
-    start_children(false, Count-1).
+%start_children(_Master, 0) ->
+%    ok;
+%start_children(Master, Count) ->
+%    case cwmaint_sup:start_child(Master) of
+%	{ok, ChildPid} ->
+%	    case Master of
+%		true ->
+%		    simple_cache:insert(masterPid, ChildPid);
+%		false ->
+%		    registerPid(slavePid, ChildPid)
+%	    end;
+%	{ok, ChildPid, _Info} ->
+%	    case Master of
+%		true ->
+%		    simple_cache:insert(masterPid, ChildPid);
+%		false ->
+%		    registerPid(slavePid, ChildPid)
+%	    end;
+%	{error, already_present} ->
+%	    io:format("~p: cwmaint_sup:start_child(~p) returned {error, already_present}", [?MODULE, Master]);
+%	{error, {already_started, ChildPid}} ->
+%	    io:format("~p: cwmaint_sup:start_child(~p) returned {error, {already_started, ~p}}", [?MODULE, Master, ChildPid])
+%    end,
+%    start_children(false, Count-1).
 
 registerPid(Key, Pid) ->
     case simple_cache:lookup(Key) of

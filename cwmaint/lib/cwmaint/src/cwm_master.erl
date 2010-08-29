@@ -13,7 +13,6 @@
 %% API
 -export([
 	 start_link/0,
-	 getList/0,
 	 startLoop/0
 	]).
 
@@ -29,7 +28,10 @@
 
 -define(SERVER, ?MODULE). 
 
--record(state, {}).
+-define(SLAVES_PER_SUPERVISOR, 5).
+-define(DELAY_LOOP, 10000).
+
+-record(state, {load_balancer, orgs_to_update}).
 
 %%%===================================================================
 %%% API
@@ -44,9 +46,6 @@
 %%--------------------------------------------------------------------
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
-
-getList() ->
-    gen_server:call(?SERVER, getList).
 
 startLoop() ->
     gen_server:cast(?SERVER, startLoop).
@@ -68,7 +67,8 @@ startLoop() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-    {ok, #state{}}.
+    {ok, #state{load_balancer = dict:new(),
+	       orgs_to_update = []}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -84,8 +84,8 @@ init([]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(getList, _From, State) ->
-    {reply, {ok, [1,2,3,4,5,6]}, State}.
+handle_call(_Request, _From, State) ->
+    {reply, ok, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -98,7 +98,7 @@ handle_call(getList, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(startLoop, State) ->
-    loop(),
+    loop(State),
     {noreply, State}.
 
 %handle_cast(_Msg, State) ->
@@ -145,38 +145,44 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+startSlaves(_SupvPid, 0) ->
+    ok;
+startSlaves(SupvPid, N) ->
+    supervisor:start_child(SupvPid, []),
+    startSlaves(SupvPid, N-1).
+
 startSlaves([]) ->
     ok;
 startSlaves([SupvPid|T]) ->
     {ok, NumChildren} = simple_cache:lookup(SupvPid),
     io:format("Supervisor ~p has ~p children~n", [SupvPid, NumChildren]),
     if
-	NumChildren < 5 ->
-	    io:format("~p~n", [supervisor:start_child(SupvPid, [])]);
+	NumChildren < ?SLAVES_PER_SUPERVISOR ->
+	    startSlaves(SupvPid, ?SLAVES_PER_SUPERVISOR - NumChildren);
 	true  -> true
        end,
     startSlaves(T).
 
 startSlaves() ->
-    {ok, SupervisorList} = simple_cache:lookup(supervisorPid),
+    SupervisorList = updateSupervisorList(),
+    countSlaves(SupervisorList),
     startSlaves(SupervisorList).
+
+getChildrenForSupervisor([], ChildList) ->
+    ChildList;
+getChildrenForSupervisor([Child|T], ChildList) ->
+    {_Id, ChildPid, _Type, _Modules} = Child,
+    getChildrenForSupervisor(T, [ChildPid | ChildList]).
+
+getChildrenForSupervisor(SupvPid) ->
+    getChildrenForSupervisor(supervisor:which_children(SupvPid), []).
 
 countSlaves([]) ->
     0;
 countSlaves([SupvPid|T]) ->
-    try
-	Children = supervisor:which_children(SupvPid),
-	simple_cache:insert(SupvPid, length(Children))
-    catch
-	%%% TODO: replace this call with a call that will drop the
-	%%% SupvPid from the list
-	_:_ -> simple_cache:delete(SupvPid)
-    end,
+    Children = getChildrenForSupervisor(SupvPid),
+    simple_cache:insert(SupvPid, length(Children)),
     countSlaves(T).
-
-countSlaves() ->
-    {ok, SupervisorList} = simple_cache:lookup(supervisorPid),
-    countSlaves(SupervisorList).
 
 is_pid_alive(Pid) when node(Pid) =:= node() ->
     is_process_alive(Pid);
@@ -195,11 +201,72 @@ is_pid_alive(Pid) ->
             end
     end.
 
-loop() ->
+updateSupervisorList([]) ->
+    % Get and return the final (current) supervisor list
+    getSupervisorList();
+updateSupervisorList([SupvPid|T]) ->
+    case is_pid_alive(SupvPid) of
+	true ->
+	    ok;
+	false ->
+	    TempList = getSupervisorList(),
+%	    io:format("Supervisor at ~p deleted: current list is ~p~n", [SupvPid, TempList]),
+	    TempList2 = lists:delete(SupvPid, TempList),
+%	    io:format("New list is ~p~n", [TempList2]),
+	    simple_cache:insert(supervisorPid, TempList2),
+	    simple_cache:delete(SupvPid)
+    end,
+    updateSupervisorList(T).
+
+updateSupervisorList() ->
+   updateSupervisorList(getSupervisorList()). 
+
+getSupervisorList() ->
+    {ok, SupvList} = simple_cache:lookup(supervisorPid),
+    SupvList.
+
+%loadBalanceChildren(_ListOfOrgs, [], _State) ->
+%    ok;
+%loadBalanceChildren(ListOfOrgs, [Child|T], State) ->
+%    case simple_cache:lookup(Child) of
+%	{ok, OrgsInProcess} ->
+	    
+
+%loadBalance(_ListOfOrgs, [], _State) ->
+%    ok;
+%loadBalance(ListOfOrgs, [SupvPid|T], State) ->
+%    ChildList = getChildrenForSupervisor(SupvPid),
+%    io:format("Got childlist from supervisor ~p: ~p~n", [SupvPid, ChildList]),
+%    loadBalanceChildren(ListOfOrgs, ChildList, State),
+%    loadBalance(ListOfOrgs, T, State).
+
+
+getOrgsToUpdate() ->
+    [1,2,3,4,5,6,7,8,9,10].    
+
+loop(State) ->
     io:format("~p: in main loop...~n", [?MODULE]),
-    timer:sleep(10000),
-    countSlaves(),
+
+    %%%===================================================================
+    %%% Starts up the supervisor's complement of slaves the first time
+    %%% the supervisor is detected.
+    %%%===================================================================
     startSlaves(),
-%    io:format("Attempting to start cwm_slaves on each supervisor found...~n"),
-%    startSlaves(SupervisorList),
-    loop().
+
+    %%%===================================================================
+    %%% Check to see if the list of orgs needing updates has changed
+    %%%===================================================================
+    Orgs_to_Update = getOrgsToUpdate(),
+    Old_Orgs_to_Update = State#state.orgs_to_update,
+    case Orgs_to_Update =:= Old_Orgs_to_Update of
+	true -> NewState = State;
+	false ->
+	    NewState = State#state{orgs_to_update = Orgs_to_Update},
+	    io:format("State = ~p~n", [State]),
+	    SupvPidList = updateSupervisorList(),
+	    io:format("Supervisor list: ~p~n", [SupvPidList])
+    end,
+
+    timer:sleep(?DELAY_LOOP),
+    loop(NewState).
+
