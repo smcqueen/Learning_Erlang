@@ -13,7 +13,8 @@
 -export([
 	 start/2,
 	 stop/1,
-	 startChild/0
+	 startChild/0,
+	 doMaintenance/0
 	]).
 
 -define(WAIT_FOR_RESOURCES, 2500).
@@ -61,7 +62,8 @@ start(_StartType, _StartArgs) ->
 		{ok, SupervisorPid} ->
 		    Supervisor2Pid = getSupervisor2Pid(),
 		    registerPid(supervisorPid, Supervisor2Pid),
-		    cwm_master:startLoop(),
+%		    cwm_master:startLoop(),
+
 %	    io:format("~p~n", [cwm_master:getList()]),
 %	    start_children(Master, 5),
 %	    {ok, MasterPid} = simple_cache:lookup(masterPid),
@@ -69,6 +71,7 @@ start(_StartType, _StartArgs) ->
 %	    {ok, SlavePid} = simple_cache:lookup(slavePid),
 %	    AllModules = [MasterPid | SlavePid],
 %	    process(AllModules, fun startProcessing/2, OrgList),
+
 		    {ok, SupervisorPid};
 		Error ->
 		    Error
@@ -225,3 +228,6 @@ registerPid(Key, Pid) ->
 	_ ->
 	    simple_cache:insert(Key, [Pid])
     end.
+
+doMaintenance() ->
+    cwm_master:doMaintenance().

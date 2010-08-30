@@ -13,7 +13,8 @@
 %% API
 -export([
 	 start_link/0,
-	 startLoop/0
+	 doMaintenance/0,
+	 finishedProcessing/2
 	]).
 
 %% gen_server callbacks
@@ -29,7 +30,7 @@
 -define(SERVER, ?MODULE). 
 
 -define(SLAVES_PER_SUPERVISOR, 5).
--define(DELAY_LOOP, 10000).
+-define(DELAY_LOOP, 3000).
 
 -record(state, {load_balancer, orgs_to_update}).
 
@@ -47,9 +48,11 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-startLoop() ->
-    gen_server:cast(?SERVER, startLoop).
+doMaintenance() ->
+    gen_server:cast(?SERVER, doMaintenance).
 
+finishedProcessing(Pid, OrgID) ->
+    gen_server:cast(?SERVER, {finishedProcessing, {Pid, OrgID}}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -67,6 +70,7 @@ startLoop() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
+    simple_cache:insert(cwm_master, self()),
     {ok, #state{load_balancer = dict:new(),
 	       orgs_to_update = []}}.
 
@@ -97,8 +101,11 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast(startLoop, State) ->
-    loop(State),
+handle_cast(doMaintenance, State) ->
+    maintenance(),
+    {noreply, State};
+handle_cast({finishedProcessing, {Pid, OrgID}}, State) ->
+    io:format("~p Finished processing ~p~n", [Pid, OrgID]),
     {noreply, State}.
 
 %handle_cast(_Msg, State) ->
@@ -154,13 +161,20 @@ startSlaves(SupvPid, N) ->
 startSlaves([]) ->
     ok;
 startSlaves([SupvPid|T]) ->
-    {ok, NumChildren} = simple_cache:lookup(SupvPid),
-    io:format("Supervisor ~p has ~p children~n", [SupvPid, NumChildren]),
-    if
-	NumChildren < ?SLAVES_PER_SUPERVISOR ->
-	    startSlaves(SupvPid, ?SLAVES_PER_SUPERVISOR - NumChildren);
-	true  -> true
-       end,
+    io:format("simple_cache:lookup(~p) = ~p~n", [SupvPid,
+						 simple_cache:lookup(SupvPid)]),
+    case simple_cache:lookup(SupvPid) of
+	{ok, NumChildren} ->
+	    io:format("Supervisor ~p has ~p children~n", [SupvPid, NumChildren]),
+	    if
+		NumChildren < ?SLAVES_PER_SUPERVISOR ->
+		    startSlaves(SupvPid, ?SLAVES_PER_SUPERVISOR - NumChildren);
+		true  -> true
+	    end;
+	{error, not_found} ->
+	    simple_cache:insert(SupvPid, 0),
+	    startSlaves(SupvPid, ?SLAVES_PER_SUPERVISOR)
+    end,
     startSlaves(T).
 
 startSlaves() ->
@@ -177,6 +191,16 @@ getChildrenForSupervisor([Child|T], ChildList) ->
 getChildrenForSupervisor(SupvPid) ->
     getChildrenForSupervisor(supervisor:which_children(SupvPid), []).
 
+getAllChildren([], ChildList) ->
+    ChildList;
+getAllChildren([SupvPid|T], ChildList) ->
+    SupvChildren = getChildrenForSupervisor(SupvPid),
+    NewChildList = SupvChildren ++ ChildList,
+    getAllChildren(T, NewChildList).
+
+getAllChildren() ->
+    getAllChildren(getSupervisorList(), []).
+    
 countSlaves([]) ->
     0;
 countSlaves([SupvPid|T]) ->
@@ -225,48 +249,54 @@ getSupervisorList() ->
     {ok, SupvList} = simple_cache:lookup(supervisorPid),
     SupvList.
 
-%loadBalanceChildren(_ListOfOrgs, [], _State) ->
-%    ok;
-%loadBalanceChildren(ListOfOrgs, [Child|T], State) ->
-%    case simple_cache:lookup(Child) of
-%	{ok, OrgsInProcess} ->
-	    
-
-%loadBalance(_ListOfOrgs, [], _State) ->
-%    ok;
-%loadBalance(ListOfOrgs, [SupvPid|T], State) ->
-%    ChildList = getChildrenForSupervisor(SupvPid),
-%    io:format("Got childlist from supervisor ~p: ~p~n", [SupvPid, ChildList]),
-%    loadBalanceChildren(ListOfOrgs, ChildList, State),
-%    loadBalance(ListOfOrgs, T, State).
-
+loadBalance([], [], _ChildList) ->
+    %% out of orgs and children simultaneously: we're done
+%    io:format("Ran out of orgs and children simultaneously~n"),
+    ok;
+loadBalance([], _ChildListTail, _ChildList) ->
+    %% out of orgs: we're done
+%    io:format("Ran out of orgs, still have these children: ~p~n", [ChildListTail]),
+    ok;
+loadBalance(OrgList, [], ChildList) ->
+    %% out of children, start over at the top of the childlist
+%    io:format("Ran out of children, still have these orgs: ~p~n", [OrgList]),
+    loadBalance(OrgList, ChildList, ChildList);
+loadBalance([OrgID|OrgListTail], [ChildPid|ChildListTail], ChildList) ->
+    io:format("Assigning OrgID ~p to Child ~p~n", [OrgID, ChildPid]),
+    gen_server:cast(ChildPid, {processOrg, OrgID}),
+%    timer:sleep(3000),
+    loadBalance(OrgListTail, ChildListTail, ChildList).
 
 getOrgsToUpdate() ->
-    [1,2,3,4,5,6,7,8,9,10].    
+    [1,2,3,4,5,6,7,8,9].    
 
-loop(State) ->
-    io:format("~p: in main loop...~n", [?MODULE]),
+maintenance() ->
 
     %%%===================================================================
     %%% Starts up the supervisor's complement of slaves the first time
     %%% the supervisor is detected.
     %%%===================================================================
-    startSlaves(),
+    SupvPidList = updateSupervisorList(),
+    countSlaves(SupvPidList),
+    startSlaves(SupvPidList),
 
     %%%===================================================================
     %%% Check to see if the list of orgs needing updates has changed
     %%%===================================================================
     Orgs_to_Update = getOrgsToUpdate(),
-    Old_Orgs_to_Update = State#state.orgs_to_update,
-    case Orgs_to_Update =:= Old_Orgs_to_Update of
-	true -> NewState = State;
-	false ->
-	    NewState = State#state{orgs_to_update = Orgs_to_Update},
-	    io:format("State = ~p~n", [State]),
-	    SupvPidList = updateSupervisorList(),
-	    io:format("Supervisor list: ~p~n", [SupvPidList])
-    end,
+%    Old_Orgs_to_Update = State#state.orgs_to_update,
+%    case Orgs_to_Update =:= Old_Orgs_to_Update of
+%	true -> NewState = State;
+%	false ->
+%	    NewState = #state{orgs_to_update = Orgs_to_Update,
+%			      load_balancer = State#state.load_balancer},
+%	    io:format("NewState = ~p~n", [NewState]),
 
-    timer:sleep(?DELAY_LOOP),
-    loop(NewState).
+%	    io:format("Supervisor list: ~p~n", [SupvPidList]),
+	    ChildList = getAllChildren(),
+	    loadBalance(Orgs_to_Update, ChildList, ChildList). 
+%    end,
+
+%    timer:sleep(?DELAY_LOOP).
+%    loop(NewState).
 

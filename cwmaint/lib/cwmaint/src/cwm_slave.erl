@@ -98,7 +98,11 @@ handle_call(_Request, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({processOrg, OrgID}, State) ->
-    io:format("Processing org ~p~n", [OrgID]),
+    io:format("~p Processing org ~p~n", [self(), OrgID]),
+    timer:sleep(5000),
+    {ok, CwmMasterPid} = simple_cache:lookup(cwm_master),
+%    io:format("~p got CwmMasterPid of ~p~n", [self(), CwmMasterPid]),
+    gen_server:cast(CwmMasterPid, {finishedProcessing, {self(), OrgID}}),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
