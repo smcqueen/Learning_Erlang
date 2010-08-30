@@ -12,8 +12,7 @@
 
 %% API
 -export([start_link/0,
-	 start_child/0,
-	 start_child/1
+	 start_child/0
 	]).
 
 %% Supervisor callbacks
@@ -38,15 +37,18 @@ start_link() ->
 %								 {local, ?SERVER},
 %								 ?MODULE,
 %								 Master]),
+    resource_discovery:add_local_resource(cwsupv, node()),
+    resource_discovery:add_target_resource_type(cwsupv),
+    resource_discovery:trade_resources(),
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
 start_child() ->
 %    io:format("~p: Entering start_child()~n", [?MODULE]),
     supervisor:start_child(?SERVER, []).
     
-start_child(IsMaster) ->
+%start_child(IsMaster) ->
 %    io:format("~p: Entering start_child(~p)~n", [?MODULE, IsMaster]),
-    supervisor:start_child(?SERVER, [IsMaster]).
+%    supervisor:start_child(?SERVER, [IsMaster]).
 
 %%%===================================================================
 %%% Supervisor callbacks
@@ -67,9 +69,9 @@ start_child(IsMaster) ->
 %%--------------------------------------------------------------------
 init(_Args) ->
 %    io:format("~p: Entering init()~n", [?MODULE]),
-    Slave = {cwm_slave, {cwm_slave, start_link, []},
-	      temporary, brutal_kill, worker, [cwm_slave]},
-    Children = [Slave],
+    Processor = {cwm_processor, {cwm_processor, start_link, []},
+	      temporary, brutal_kill, worker, [cwm_processor]},
+    Children = [Processor],
     RestartStrategy = {simple_one_for_one, 0, 1},
     {ok, {RestartStrategy, Children}}.
 		

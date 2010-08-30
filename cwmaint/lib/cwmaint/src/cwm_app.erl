@@ -9,15 +9,14 @@
 
 -behaviour(application).
 
+-include("cwmaint.hrl").
+
 %% Application callbacks
 -export([
 	 start/2,
 	 stop/1,
-	 startChild/0,
-	 doMaintenance/0
+	 startChild/0
 	]).
-
--define(WAIT_FOR_RESOURCES, 2500).
 
 %%%===================================================================
 %%% Application callbacks
@@ -50,48 +49,30 @@ start(_StartType, _StartArgs) ->
     io:format("cwmaint nodes:~p~n", [CwmaintNodes]),
     case length(CwmaintNodes) > 1 of
 	true ->
-	    IsMaster = false,
 	    io:format("There is another instance of cwmaint running~n");
 	false ->
-	    IsMaster = true,
 	    io:format("This is the first cwmaint instance~n")
     end,
-    case IsMaster of
-	true ->
-	    case cwm_sup1:start_link(IsMaster) of
-		{ok, SupervisorPid} ->
-		    Supervisor2Pid = getSupervisor2Pid(),
-		    registerPid(supervisorPid, Supervisor2Pid),
-%		    cwm_master:startLoop(),
-
-%	    io:format("~p~n", [cwm_master:getList()]),
-%	    start_children(Master, 5),
-%	    {ok, MasterPid} = simple_cache:lookup(masterPid),
-%	    {ok, OrgList} = gen_server:call(MasterPid, get_list),
-%	    {ok, SlavePid} = simple_cache:lookup(slavePid),
-%	    AllModules = [MasterPid | SlavePid],
-%	    process(AllModules, fun startProcessing/2, OrgList),
-
-		    {ok, SupervisorPid};
-		Error ->
-		    Error
-	    end;
-	false ->
-	    case cwm_sup2:start_link() of
-		{ok, SupervisorPid} ->
-		    registerPid(supervisorPid, SupervisorPid),
-%	    io:format("~p~n", [cwm_master:getList()]),
-%	    start_children(Master, 5),
-%	    {ok, MasterPid} = simple_cache:lookup(masterPid),
-%	    {ok, OrgList} = gen_server:call(MasterPid, get_list),
-%	    {ok, SlavePid} = simple_cache:lookup(slavePid),
-%	    AllModules = [MasterPid | SlavePid],
-%	    process(AllModules, fun startProcessing/2, OrgList),
-		    {ok, SupervisorPid};
-		Error ->
-		    Error
-	    end
+    case cwm_sup1:start_link() of
+	{ok, SupervisorPid} ->
+	    Supervisor2Pid = getSupervisor2Pid(),
+	    registerPid(supervisorPid, Supervisor2Pid),
+    	    startProcessors(Supervisor2Pid, ?PROCESSORS_PER_SUPERVISOR),
+	    timer:sleep(60*1000),
+	    cwm_manager:doProcess(),
+	    case timer:apply_interval(30*1000, cwm_manager, doProcess, []) of
+		{ok, _TRef} ->
+		    ok;
+		{error, Reason} ->
+		    io:format("timer:apply_interval error: ~p~n", [Reason])
+%		    {error, Reason}
+	    end,
+	    {ok, SupervisorPid};
+	Error ->
+	    Error
     end.
+
+
 
 startChild() ->
     cwm_sup2:start_child().
@@ -151,7 +132,7 @@ stop(_State) ->
 %%% Internal functions
 %%%===================================================================
 ensure_contact() ->
-    DefaultNodes = ['contact1@gandalf', 'contact2@gandalf'],
+    DefaultNodes = ['contact1@buildserver3', 'contact2@buildserver3'],
     case get_env(cwmaint, contact_nodes, DefaultNodes) of
 	[] ->
 	    {error, no_contact_nodes};
@@ -229,5 +210,8 @@ registerPid(Key, Pid) ->
 	    simple_cache:insert(Key, [Pid])
     end.
 
-doMaintenance() ->
-    cwm_master:doMaintenance().
+startProcessors(_SupvPid, 0) ->
+    ok;
+startProcessors(SupvPid, N) ->
+    supervisor:start_child(SupvPid, []),
+    startProcessors(SupvPid, N-1).

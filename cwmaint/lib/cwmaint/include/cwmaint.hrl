@@ -1,5 +1,11 @@
--define(ORGCHILD, {cwm_org, {cwm_org, start_link, []},
-		permanent, 2000, worker, [cwm_org]}).
-
--define(ACTCHILD, {cwm_act, {cwm_act, start_link, []},
-		temporary, brutal_kill, worker, [cwm_act]}).
+-define(WAIT_FOR_RESOURCES, 2500).
+-define(PROCESSORS_PER_SUPERVISOR, 50).
+-define(AGE, 10).
+%-define(DBSERVER, "dbserver").
+%-define(USERNAME, "masteruser").
+%-define(PASSWORD, "mast3rus3r").
+%-define(DATABASE, "prorelay").
+-define(DBSERVER, "testprodb").
+-define(USERNAME, "smcqueen").
+-define(PASSWORD, "smcqu33n").
+-define(DATABASE, "relay").

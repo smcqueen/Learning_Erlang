@@ -11,7 +11,7 @@
 -include("cwmaint.hrl").
 
 %% API
--export([start_link/1,
+-export([start_link/0,
 	 start_child/0,
 	 start_child/1
 	]).
@@ -32,13 +32,13 @@
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(Master) ->
+start_link() ->
 %    io:format("~p: Entering start_link()~n", [?MODULE]),
 %    io:format("~p: Calling supervisor:start_link(~p, ~p, [~p])~n", [?MODULE,
 %								 {local, ?SERVER},
 %								 ?MODULE,
 %								 Master]),
-    supervisor:start_link({local, ?SERVER}, ?MODULE, [Master]).
+    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
 start_child() ->
 %    io:format("~p: Entering start_child()~n", [?MODULE]),
@@ -65,17 +65,12 @@ start_child(IsMaster) ->
 %%                     {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([IsMaster]) ->
-    Master = {cwm_master, {cwm_master, start_link, []},
-	      permanent, 2000, worker, [cwm_master]},
+init(_Args) ->
+    Manager = {cwm_manager, {cwm_manager, start_link, []},
+	      permanent, 2000, worker, [cwm_manager]},
     Supervisor = {cwm_sup2, {cwm_sup2, start_link, []},
 		  permanent, infinity, supervisor, [cwm_sup2]},
-    case IsMaster of
-	true ->
-	    Children = [Master, Supervisor];
-	false ->
-	    Children = [Supervisor]
-    end,
+    Children = [Manager, Supervisor],
     RestartStrategy = {one_for_one, 1000, 3600},
     {ok, {RestartStrategy, Children}}.
 		

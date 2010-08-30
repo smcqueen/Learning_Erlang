@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 24 Aug 2010 by Stan McQueen <smcqueen@ubuntu910.bluffdale.iaccess.com>
 %%%-------------------------------------------------------------------
--module(cwm_slave).
+-module(cwm_processor).
 
 -behaviour(gen_server).
 
@@ -68,6 +68,8 @@ processOrg(OrgID) ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
+    {ok, CwmManagerPid} = simple_cache:lookup(cwm_manager),
+    gen_server:cast(CwmManagerPid, {processorAvailable, self()}),
     {ok, #state{}}.
 
 %%--------------------------------------------------------------------
@@ -97,12 +99,22 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
+
 handle_cast({processOrg, OrgID}, State) ->
     io:format("~p Processing org ~p~n", [self(), OrgID]),
-    timer:sleep(5000),
-    {ok, CwmMasterPid} = simple_cache:lookup(cwm_master),
-%    io:format("~p got CwmMasterPid of ~p~n", [self(), CwmMasterPid]),
-    gen_server:cast(CwmMasterPid, {finishedProcessing, {self(), OrgID}}),
+    mysql:start_link(db, ?DBSERVER, ?USERNAME, ?PASSWORD, ?DATABASE),
+    Table = "activity" ++ integer_to_list(OrgID),
+    Now = calendar:local_time(),
+    Select = "select activityid, createdatetime from " ++ Table ++ " order by createdatetime desc limit " ++ "1000",
+    case (mysql:fetch(db, Select)) of
+	{data, MysqlRes} ->
+	    AllRows = mysql:get_result_rows(MysqlRes),
+	    process_rows(Now, AllRows, Table);
+	{error, _Error} ->
+	    ok
+    end,
+    
+    report(10),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -148,24 +160,45 @@ code_change(_OldVsn, State, _Extra) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% 1. Get a list of orgids from the database
-%% 2. Find out which ones have activity tables
-%% 3. Insert a key, value into the simple_cache with the list of orgids
-%% 4. Call cwmaint_sup:start_child(?ACTCHILD)to process an orgid (each
-%%    ACTCHILD will call cwmaint_sup:start_child again 
-%% 5. Sleep for ?DELAY_TIME seconds and then do it all over again.
 %% @spec
 %% @end
 %%--------------------------------------------------------------------
-loop() ->
-    %% get list of orgids
+report(N) ->
+    case N > 0 of
+	true ->
+	    case simple_cache:lookup(cwm_manager) of
+		{ok, CwmManagerPid} ->
+		    gen_server:cast(CwmManagerPid, {processorAvailable, self()});
+		{error, not_found} ->
+		    io:format("Attempt #~p: Manager not found, retrying...~n", [N]),
+                    %% Manager not found: may be in a failover condition.
+                    %% Retry N times
+		    timer:sleep(2000),
+		    report(N-1)
+	    end;
+	false ->
+	    false
+    end.
 
-    %% get activity tables
+process_rows(_Now, [], _Table) ->
+    ok;
+process_rows(Now, AllRows, Table) ->
+    [H|T] = AllRows,
+    [Activityid|D] = H,
+    [D1|_] = D,
+    {datetime, Datetime} = D1,
+    Age = age(Now, Datetime),
+    case Age > ?AGE of
+	true ->
+	    io:format("Activityid = ~p, DateTime = ~p", [Activityid, Datetime]),
+	    io:format(", Age = ~p days~n", [Age]);
+	false ->
+	    ok
+    end,
+    process_rows(Now, T, Table).
 
-    %% call simple_cache:insert
-
-    %% generate ACTCHILD process
-
-    timer:sleep(10000),
-
-    loop().
+age(Now, Then) ->
+%    io:format("age received (~p,~p)~n", [Now, Then]),
+    SecondsNow = calendar:datetime_to_gregorian_seconds(Now),
+    SecondsThen = calendar:datetime_to_gregorian_seconds(Then),
+    trunc((SecondsNow-SecondsThen)/(60*60*24)).
