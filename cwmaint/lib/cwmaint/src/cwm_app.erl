@@ -58,9 +58,9 @@ start(_StartType, _StartArgs) ->
 	    Supervisor2Pid = getSupervisor2Pid(),
 	    registerPid(supervisorPid, Supervisor2Pid),
     	    startProcessors(Supervisor2Pid, ?PROCESSORS_PER_SUPERVISOR),
-	    timer:sleep(60*1000),
+	    timer:sleep(10*1000),
 	    cwm_manager:doProcess(),
-	    case timer:apply_interval(30*1000, cwm_manager, doProcess, []) of
+	    case timer:apply_interval(10*60*1000, cwm_manager, doProcess, []) of
 		{ok, _TRef} ->
 		    ok;
 		{error, Reason} ->
@@ -132,7 +132,7 @@ stop(_State) ->
 %%% Internal functions
 %%%===================================================================
 ensure_contact() ->
-    DefaultNodes = ['contact1@buildserver3', 'contact2@buildserver3'],
+    DefaultNodes = ['contact1@buildserver3', 'contact2@buildserver3', 'contact1@gandalf', 'contact2@gandalf'],
     case get_env(cwmaint, contact_nodes, DefaultNodes) of
 	[] ->
 	    {error, no_contact_nodes};

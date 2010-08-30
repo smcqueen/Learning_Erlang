@@ -123,7 +123,8 @@ handle_cast({processorAvailable, Pid}, State) ->
     %% If the PID is already in the list, delete it to avoid duplication
     AvailableProcessors = lists:delete(Pid, State#state.available_processors),
     NewState = State#state{available_processors = [Pid | AvailableProcessors]},
-    {noreply, NewState}.
+    NewState2 = assignWork(NewState),
+    {noreply, NewState2}.
 
 %handle_cast(_Msg, State) ->
 %    {noreply, State}.
@@ -290,10 +291,12 @@ getSupervisorList() ->
 %    loadBalance(OrgListTail, ChildListTail, ChildList).
 
 assignWork([], [], State) ->
+    io:format("No work to do...~n"),
     State;
 assignWork([], [_H|_T], State) ->
-    State;
+    io:format("No work to do...~n"),    State;
 assignWork([_H|_T], [], State) ->
+    io:format("No workers available...~n"),
     State;
 assignWork([OrgID|OrgListTail], [ProcID|ProcIDTail], State) ->
     io:format("Assigning OrgID ~p to Processor ~p~n", [OrgID, ProcID]),
