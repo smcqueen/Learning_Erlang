@@ -60,7 +60,7 @@ start(_StartType, _StartArgs) ->
     	    startProcessors(Supervisor2Pid, ?PROCESSORS_PER_SUPERVISOR),
 	    timer:sleep(10*1000),
 	    cwm_manager:doProcess(),
-	    case timer:apply_interval(10*60*1000, cwm_manager, doProcess, []) of
+	    case timer:apply_interval(60*1000, cwm_manager, doProcess, []) of
 		{ok, _TRef} ->
 		    ok;
 		{error, Reason} ->

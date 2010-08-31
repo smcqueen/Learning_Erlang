@@ -16,7 +16,8 @@
 -export([
 	 start_link/0,
 	 doProcess/0,
-	 processorAvailable/1
+	 processorAvailable/1,
+	 processorAvailable/2
 	]).
 
 %% gen_server callbacks
@@ -33,7 +34,10 @@
 
 -record(state, {is_manager,
 		orgs_to_update,
-	        available_processors}).
+	        available_processors,
+	        busy_processors,
+		orgs_done
+	       }).
 
 %%%===================================================================
 %%% API
@@ -55,6 +59,8 @@ doProcess() ->
 processorAvailable(Pid) ->
     gen_server:cast(?SERVER, {processorAvailable, Pid}).
 
+processorAvailable(Pid, OrgID) ->
+    gen_server:cast(?SERVER, {processorAvailable, {Pid, OrgID}}).
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -72,9 +78,12 @@ processorAvailable(Pid) ->
 %%--------------------------------------------------------------------
 init([]) ->
     IsManager = checkManager(),
+    mysql:start_link(db, ?DBSERVER, ?USERNAME, ?PASSWORD, ?DATABASE),
     {ok, #state{available_processors = [],
 	       orgs_to_update = [],
-	       is_manager = IsManager}}.
+	       is_manager = IsManager,
+	       busy_processors = [],
+	       orgs_done = []}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -118,13 +127,38 @@ handle_cast(doProcess, State) ->
     end,
     NewState2 = process(NewState),
     {noreply, NewState2};
-handle_cast({processorAvailable, Pid}, State) ->
-    io:format("Processor ~p is now available...~n", [Pid]),
-    %% If the PID is already in the list, delete it to avoid duplication
-    AvailableProcessors = lists:delete(Pid, State#state.available_processors),
-    NewState = State#state{available_processors = [Pid | AvailableProcessors]},
-    NewState2 = assignWork(NewState),
+handle_cast(Request, State) ->
+    case Request of
+	{processorAvailable, Pid} ->
+	    io:format("Processor ~p is now available...~n", [Pid]),
+            %% If the PID is already in the list, don't re-add it
+	    case lists:member(Pid, State#state.available_processors) of
+		true ->
+		    NewState2 = State;
+		false ->
+		    AvailableProcessors = State#state.available_processors,
+		    BusyProcessors = lists:delete(Pid, State#state.busy_processors),
+		    NewState2 = State#state{available_processors = [Pid | AvailableProcessors],
+					   busy_processors = BusyProcessors}
+	    end;
+
+	{processorAvailable, Pid, Orgid} ->
+	    io:format("Processor ~p finished processing Org ~p...~n", [Pid, Orgid]),
+            %% If the PID is already in the list, don't re-add it
+	    case lists:member(Pid, State#state.available_processors) of
+		true ->
+		    NewState = State;
+		false ->
+		    AvailableProcessors = State#state.available_processors,
+		    BusyProcessors = lists:delete(Pid, State#state.busy_processors),
+		    NewState = State#state{available_processors = [Pid | AvailableProcessors],
+					   busy_processors = BusyProcessors}
+	    end,
+	    NewState2 = NewState#state{orgs_done = [Orgid | NewState#state.orgs_done]}
+            %    NewState2 = assignWork(NewState),
+    end,
     {noreply, NewState2}.
+
 
 %handle_cast(_Msg, State) ->
 %    {noreply, State}.
@@ -290,6 +324,25 @@ getSupervisorList() ->
 %    gen_server:cast(ChildPid, {processOrg, OrgID}),
 %    loadBalance(OrgListTail, ChildListTail, ChildList).
 
+pingProcessors([], State) ->
+    State;
+pingProcessors([ProcID|T], State) ->
+    case is_pid_alive(ProcID) of
+	true ->
+	    NewState = State;
+	false ->
+	    {ok, NewPID} = supervisor:start_child(cwm_sup2, []),
+	    BusyProcessors = lists:delete(ProcID, State#state.busy_processors),
+	    AvailableProcessors = [NewPID | State#state.available_processors],
+	    NewState = State#state{busy_processors = BusyProcessors,
+				   available_processors = AvailableProcessors}
+    end,
+    pingProcessors(T, NewState).
+	    
+pingProcessors(State) ->
+    BusyProcessors = State#state.busy_processors,
+    pingProcessors(BusyProcessors, State).
+
 assignWork([], [], State) ->
     io:format("No work to do...~n"),
     State;
@@ -297,12 +350,19 @@ assignWork([], [_H|_T], State) ->
     io:format("No work to do...~n"),    State;
 assignWork([_H|_T], [], State) ->
     io:format("No workers available...~n"),
-    State;
+    case length(State#state.busy_processors)>0 of
+	false ->
+	    NewState = State;
+	true ->
+	    NewState = pingProcessors(State)
+    end,
+    NewState;
 assignWork([OrgID|OrgListTail], [ProcID|ProcIDTail], State) ->
     io:format("Assigning OrgID ~p to Processor ~p~n", [OrgID, ProcID]),
     gen_server:cast(ProcID, {processOrg, OrgID}),
     NewState = State#state{orgs_to_update = lists:delete(OrgID, State#state.orgs_to_update),
-    available_processors = lists:delete(ProcID, State#state.available_processors)},
+    available_processors = lists:delete(ProcID, State#state.available_processors),
+    busy_processors = [ProcID | State#state.busy_processors]},
     timer:sleep(1000),
     NewState2 = assignWork(OrgListTail, ProcIDTail, NewState),
     NewState2.
@@ -312,9 +372,10 @@ assignWork(State) ->
     NewState = assignWork(State#state.orgs_to_update, State#state.available_processors, State),
     NewState.
 
-getActiveOrgs([], OrgList) ->
-    OrgList;
-getActiveOrgs([Orgid|T], OrgList) ->
+getActiveOrgs([], OrgList, State) ->
+    State#state{orgs_to_update = OrgList -- State#state.orgs_done,
+	   orgs_done = []};
+getActiveOrgs([Orgid|T], OrgList, State) ->
     case is_number(Orgid) of
        true -> OrgidT = integer_to_list(Orgid);
        false ->
@@ -331,13 +392,12 @@ getActiveOrgs([Orgid|T], OrgList) ->
 	{error, _Error} ->
 	    NewList = OrgList
     end,
-    getActiveOrgs(T, NewList).
+    getActiveOrgs(T, NewList, State).
     
-getOrgsToUpdate() ->
-    mysql:start_link(db, ?DBSERVER, ?USERNAME, ?PASSWORD, ?DATABASE),
+getOrgsToUpdate(State) ->
     {data, Result} = mysql:fetch(db, "select orgid from companies"),
     OrgIDList = mysql:get_result_rows(Result),
-    getActiveOrgs(OrgIDList, []).
+    getActiveOrgs(OrgIDList, [], State).
 
 checkManager() ->
     case simple_cache:lookup(?MODULE) of
@@ -373,15 +433,16 @@ process(State) ->
             %%%===================================================================
             %%% Check to see if the list of orgs needing updates has changed
             %%%===================================================================
-	    if length(State#state.orgs_to_update)
-		== 0 ->
-		    Orgs_to_Update = getOrgsToUpdate(),
-		    NewState = State#state{orgs_to_update = Orgs_to_Update},
-		    io:format("Got new orgs: ~p~n", [Orgs_to_Update]);
-	        true ->
+	    case length(State#state.orgs_to_update) == 0 of
+		true ->
+		    NewState = getOrgsToUpdate(State),
+%		    NewState = State#state{orgs_to_update = Orgs_to_Update},
+		    io:format("Got new orgs: ~p~n", [NewState#state.orgs_to_update]);
+	        false ->
 		    NewState = State
 	    end,
 	    NewState2 = assignWork(NewState),
+	    io:format("State now = ~p~n", [NewState2]),
 	    NewState2
     end.
 

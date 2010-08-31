@@ -69,6 +69,8 @@ processOrg(OrgID) ->
 %%--------------------------------------------------------------------
 init([]) ->
     {ok, CwmManagerPid} = simple_cache:lookup(cwm_manager),
+%    mysql:start_link(db, ?DBSERVER, ?USERNAME, ?PASSWORD, ?DATABASE),
+    mysql:connect(db, ?DBSERVER, undefined, ?USERNAME, ?PASSWORD, ?DATABASE, true),
     gen_server:cast(CwmManagerPid, {processorAvailable, self()}),
     {ok, #state{}}.
 
@@ -102,19 +104,20 @@ handle_call(_Request, _From, State) ->
 
 handle_cast({processOrg, OrgID}, State) ->
     io:format("~p Processing org ~p~n", [self(), OrgID]),
-    mysql:start_link(db, ?DBSERVER, ?USERNAME, ?PASSWORD, ?DATABASE),
     Table = "activity" ++ integer_to_list(OrgID),
     Now = calendar:local_time(),
-    Select = "select activityid, createdatetime from " ++ Table ++ " order by createdatetime desc limit " ++ "1000",
-    case (mysql:fetch(db, Select)) of
+%    Select = "select activityid, createdatetime from " ++ Table ++ " order by createdatetime desc limit " ++ "1000",
+    Select = "select activityid from " ++ Table ++ " where datediff(now(), createdatetime) > " ++ integer_to_list(?AGE),
+    case (mysql:fetch(db, Select, 10 * 1000)) of
 	{data, MysqlRes} ->
 	    AllRows = mysql:get_result_rows(MysqlRes),
-	    process_rows(Now, AllRows, Table);
+	    io:format("~p got ~p rows from ~p~n", [self(), length(AllRows), Table]);
+%	    process_rows(Now, AllRows, Table);
 	{error, _Error} ->
 	    ok
     end,
     
-    report(10),
+    report(OrgID, 10),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -163,18 +166,18 @@ code_change(_OldVsn, State, _Extra) ->
 %% @spec
 %% @end
 %%--------------------------------------------------------------------
-report(N) ->
+report(OrgID, N) ->
     case N > 0 of
 	true ->
 	    case simple_cache:lookup(cwm_manager) of
 		{ok, CwmManagerPid} ->
-		    gen_server:cast(CwmManagerPid, {processorAvailable, self()});
+		    gen_server:cast(CwmManagerPid, {processorAvailable, self(), OrgID});
 		{error, not_found} ->
 		    io:format("Attempt #~p: Manager not found, retrying...~n", [N]),
                     %% Manager not found: may be in a failover condition.
                     %% Retry N times
 		    timer:sleep(2000),
-		    report(N-1)
+		    report(OrgID, N-1)
 	    end;
 	false ->
 	    false
