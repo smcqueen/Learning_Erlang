@@ -108,11 +108,11 @@ handle_cast({processOrg, OrgID}, State) ->
 %    Now = calendar:local_time(),
 %    Select = "select activityid, createdatetime from " ++ Table ++ " order by createdatetime desc limit " ++ "1000",
     Select = "select activityid from " ++ Table ++ " where datediff(now(), createdatetime) > " ++ integer_to_list(?AGE),
-    case (mysql:fetch(db, Select, 10 * 1000)) of
+    case mysql:fetch(db, Select) of
 	{data, MysqlRes} ->
 	    ActivityIDList = mysql:get_result_rows(MysqlRes),
 	    io:format("~p got ~p rows from ~p~n", [self(), length(ActivityIDList), Table]),
-	    process_rows(ActivityIDList, OrgID);
+	    process_rows(lists:flatten(ActivityIDList), OrgID);
 	{error, _Error} ->
 	    ok
     end,

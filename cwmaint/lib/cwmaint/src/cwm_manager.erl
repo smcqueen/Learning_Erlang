@@ -82,7 +82,7 @@ processorAvailable(Pid, OrgID) ->
 %%--------------------------------------------------------------------
 init([]) ->
     IsManager = checkManager(),
-    mysql:start_link(db, ?DBSERVER, ?USERNAME, ?PASSWORD, ?DATABASE, mylog),
+    mysql:start_link(db, ?DBSERVER, ?USERNAME, ?PASSWORD, ?DATABASE),
     {ok, #state{available_processors = [],
 	       orgs_to_update = [],
 	       is_manager = IsManager,
