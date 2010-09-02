@@ -1,5 +1,5 @@
 -define(WAIT_FOR_RESOURCES, 2500).
--define(PROCESSORS_PER_SUPERVISOR, 25).
+-define(PROCESSORS_PER_SUPERVISOR, 5).
 -define(AGE, 10).
 -define(DBSERVER, "dbserver").
 -define(USERNAME, "masteruser").

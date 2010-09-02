@@ -17,7 +17,8 @@
 	 start_link/0,
 	 doProcess/0,
 	 processorAvailable/1,
-	 processorAvailable/2
+	 processorAvailable/2,
+	 mylog/4
 	]).
 
 %% gen_server callbacks
@@ -38,6 +39,9 @@
 	        busy_processors,
 		orgs_done
 	       }).
+
+mylog(_A, _B, _C, _D) ->
+    ok.
 
 %%%===================================================================
 %%% API
@@ -78,7 +82,7 @@ processorAvailable(Pid, OrgID) ->
 %%--------------------------------------------------------------------
 init([]) ->
     IsManager = checkManager(),
-    mysql:start_link(db, ?DBSERVER, ?USERNAME, ?PASSWORD, ?DATABASE),
+    mysql:start_link(db, ?DBSERVER, ?USERNAME, ?PASSWORD, ?DATABASE, mylog),
     {ok, #state{available_processors = [],
 	       orgs_to_update = [],
 	       is_manager = IsManager,

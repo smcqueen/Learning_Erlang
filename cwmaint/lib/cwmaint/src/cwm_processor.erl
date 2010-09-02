@@ -105,14 +105,14 @@ handle_call(_Request, _From, State) ->
 handle_cast({processOrg, OrgID}, State) ->
     io:format("~p Processing org ~p~n", [self(), OrgID]),
     Table = "activity" ++ integer_to_list(OrgID),
-    Now = calendar:local_time(),
+%    Now = calendar:local_time(),
 %    Select = "select activityid, createdatetime from " ++ Table ++ " order by createdatetime desc limit " ++ "1000",
     Select = "select activityid from " ++ Table ++ " where datediff(now(), createdatetime) > " ++ integer_to_list(?AGE),
     case (mysql:fetch(db, Select, 10 * 1000)) of
 	{data, MysqlRes} ->
-	    AllRows = mysql:get_result_rows(MysqlRes),
-	    io:format("~p got ~p rows from ~p~n", [self(), length(AllRows), Table]);
-%	    process_rows(Now, AllRows, Table);
+	    ActivityIDList = mysql:get_result_rows(MysqlRes),
+	    io:format("~p got ~p rows from ~p~n", [self(), length(ActivityIDList), Table]),
+	    process_rows(ActivityIDList, OrgID);
 	{error, _Error} ->
 	    ok
     end,
@@ -183,25 +183,26 @@ report(OrgID, N) ->
 	    false
     end.
 
-process_rows(_Now, [], _Table) ->
+process_rows([], _OrgID) ->
     ok;
-process_rows(Now, AllRows, Table) ->
-    [H|T] = AllRows,
-    [Activityid|D] = H,
-    [D1|_] = D,
-    {datetime, Datetime} = D1,
-    Age = age(Now, Datetime),
-    case Age > ?AGE of
-	true ->
-	    io:format("Activityid = ~p, DateTime = ~p", [Activityid, Datetime]),
-	    io:format(", Age = ~p days~n", [Age]);
-	false ->
-	    ok
-    end,
-    process_rows(Now, T, Table).
+process_rows([ActivityID|T], OrgID) ->
+%    [H|T] = ActivityIDList,
+%    [Activityid|D] = H,
+%    [D1|_] = D,
+%    {datetime, Datetime} = D1,
+%    Age = age(Now, Datetime),
+%    case Age > ?AGE of
+%	true ->
+%	    io:format("Activityid = ~p, DateTime = ~p", [Activityid, Datetime]),
+%	    io:format(", Age = ~p days~n", [Age]);
+%	false ->
+%	    ok
+%    end,
+    io:format("Processing ActivityID ~p~n", [ActivityID]),
+    process_rows(T, OrgID).
 
-age(Now, Then) ->
-%    io:format("age received (~p,~p)~n", [Now, Then]),
-    SecondsNow = calendar:datetime_to_gregorian_seconds(Now),
-    SecondsThen = calendar:datetime_to_gregorian_seconds(Then),
-    trunc((SecondsNow-SecondsThen)/(60*60*24)).
+%age(Now, Then) ->
+%%    io:format("age received (~p,~p)~n", [Now, Then]),
+%    SecondsNow = calendar:datetime_to_gregorian_seconds(Now),
+%    SecondsThen = calendar:datetime_to_gregorian_seconds(Then),
+%    trunc((SecondsNow-SecondsThen)/(60*60*24)).
