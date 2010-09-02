@@ -1,11 +1,11 @@
 -define(WAIT_FOR_RESOURCES, 2500).
 -define(PROCESSORS_PER_SUPERVISOR, 25).
 -define(AGE, 10).
-%-define(DBSERVER, "dbserver").
-%-define(USERNAME, "masteruser").
-%-define(PASSWORD, "mast3rus3r").
+-define(DBSERVER, "dbserver").
+-define(USERNAME, "masteruser").
+-define(PASSWORD, "mast3rus3r").
 %-define(DATABASE, "prorelay").
--define(DBSERVER, "testprodb").
--define(USERNAME, "smcqueen").
--define(PASSWORD, "smcqu33n").
+%-define(DBSERVER, "testprodb").
+%-define(USERNAME, "smcqueen").
+%-define(PASSWORD, "smcqu33n").
 -define(DATABASE, "relay").

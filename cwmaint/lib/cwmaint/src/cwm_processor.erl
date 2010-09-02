@@ -70,7 +70,7 @@ processOrg(OrgID) ->
 init([]) ->
     {ok, CwmManagerPid} = simple_cache:lookup(cwm_manager),
 %    mysql:start_link(db, ?DBSERVER, ?USERNAME, ?PASSWORD, ?DATABASE),
-    mysql:connect(db, ?DBSERVER, undefined, ?USERNAME, ?PASSWORD, ?DATABASE, true),
+%    mysql:connect(db, ?DBSERVER, undefined, ?USERNAME, ?PASSWORD, ?DATABASE, true),
     gen_server:cast(CwmManagerPid, {processorAvailable, self()}),
     {ok, #state{}}.
 

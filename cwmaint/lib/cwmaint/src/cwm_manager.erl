@@ -363,7 +363,7 @@ assignWork([OrgID|OrgListTail], [ProcID|ProcIDTail], State) ->
     NewState = State#state{orgs_to_update = lists:delete(OrgID, State#state.orgs_to_update),
     available_processors = lists:delete(ProcID, State#state.available_processors),
     busy_processors = [ProcID | State#state.busy_processors]},
-    timer:sleep(1000),
+    timer:sleep(5000),
     NewState2 = assignWork(OrgListTail, ProcIDTail, NewState),
     NewState2.
     
