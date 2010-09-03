@@ -104,7 +104,8 @@ handle_call(_Request, _From, State) ->
 
 handle_cast({processOrg, OrgID}, State) ->
     io:format("~p Processing org ~p~n", [self(), OrgID]),
-    Table = "activity" ++ integer_to_list(OrgID),
+    OrgIDStr = integer_to_list(OrgID),
+    Table = string:concat("activity", OrgIDStr),
 %    Now = calendar:local_time(),
 %    Select = "select activityid, createdatetime from " ++ Table ++ " order by createdatetime desc limit " ++ "1000",
     Select = "select activityid from " ++ Table ++ " where datediff(now(), createdatetime) > " ++ integer_to_list(?AGE),
@@ -112,7 +113,7 @@ handle_cast({processOrg, OrgID}, State) ->
 	{data, MysqlRes} ->
 	    ActivityIDList = mysql:get_result_rows(MysqlRes),
 	    io:format("~p got ~p rows from ~p~n", [self(), length(ActivityIDList), Table]),
-	    process_rows(lists:flatten(ActivityIDList), OrgID);
+	    process_rows(lists:flatten(ActivityIDList), OrgIDStr);
 	{error, _Error} ->
 	    ok
     end,
@@ -183,23 +184,31 @@ report(OrgID, N) ->
 	    false
     end.
 
-process_rows([], _OrgID) ->
+process_rows([], _OrgIDStr) ->
     ok;
-process_rows([ActivityID|T], OrgID) ->
-%    [H|T] = ActivityIDList,
-%    [Activityid|D] = H,
-%    [D1|_] = D,
-%    {datetime, Datetime} = D1,
-%    Age = age(Now, Datetime),
-%    case Age > ?AGE of
-%	true ->
-%	    io:format("Activityid = ~p, DateTime = ~p", [Activityid, Datetime]),
-%	    io:format(", Age = ~p days~n", [Age]);
-%	false ->
-%	    ok
-%    end,
-    io:format("Processing ActivityID ~p~n", [ActivityID]),
-    process_rows(T, OrgID).
+process_rows([ActivityID|T], OrgIDStr) ->
+%    io:format("Processing ActivityID ~p~n", [ActivityID]),
+    ActivityCategoryTable = string:concat("activitycategory", OrgIDStr),
+    ActivitySearchTable = string:concat("activitysearch", OrgIDStr),
+    Select1 = "select count(*) from " ++ ActivityCategoryTable ++ " where activityid=" ++ integer_to_list(ActivityID),
+    Select2 = "select count(*) from " ++ ActivitySearchTable ++ " where activityid=" ++ integer_to_list(ActivityID),
+    case mysql:fetch(db, Select1) of
+	{data, MysqlRes1} ->
+	    ActivityCategoryList = mysql:get_result_rows(MysqlRes1),
+	    io:format("~p got ~p from ~p~n", [self(), ActivityCategoryList, ActivityCategoryTable]);
+
+	{error, _Error1} ->
+	    ok
+    end,
+    case mysql:fetch(db, Select2) of
+	{data, MysqlRes2} ->
+	    ActivitySearchList = mysql:get_result_rows(MysqlRes2),
+	    io:format("~p got ~p from ~p~n", [self(), ActivitySearchList, ActivitySearchTable]);
+
+	{error, _Error2} ->
+	    ok
+    end,
+    process_rows(T, OrgIDStr).
 
 %age(Now, Then) ->
 %%    io:format("age received (~p,~p)~n", [Now, Then]),

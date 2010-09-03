@@ -1,6 +1,6 @@
 -define(WAIT_FOR_RESOURCES, 2500).
 -define(PROCESSORS_PER_SUPERVISOR, 5).
--define(AGE, 10).
+-define(AGE, 30).
 -define(DBSERVER, "dbserver").
 -define(USERNAME, "masteruser").
 -define(PASSWORD, "mast3rus3r").
@@ -8,4 +8,5 @@
 %-define(DBSERVER, "testprodb").
 %-define(USERNAME, "smcqueen").
 %-define(PASSWORD, "smcqu33n").
--define(DATABASE, "relay").
+-define(DATABASE, "homerelay").
+-define(ORGTYPE, "families").

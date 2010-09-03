@@ -83,11 +83,21 @@ processorAvailable(Pid, OrgID) ->
 init([]) ->
     IsManager = checkManager(),
     mysql:start_link(db, ?DBSERVER, ?USERNAME, ?PASSWORD, ?DATABASE),
+    {data, Result} = mysql:fetch(db, "show tables like 'activity%'"),
+    TableList= mysql:get_result_rows(Result),
+    io:format("Got tables ~p~n", [lists:flatten(TableList)]),
+    convertTableNames(lists:flatten(TableList)),
     {ok, #state{available_processors = [],
 	       orgs_to_update = [],
 	       is_manager = IsManager,
 	       busy_processors = [],
 	       orgs_done = []}}.
+
+convertTableNames([]) ->
+    ok;
+convertTableNames([TableNameBin | T]) ->
+    io:format("~p -> ~p~n", [TableNameBin, binary_to_list(TableNameBin)]),
+    convertTableNames(T).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -399,7 +409,7 @@ getActiveOrgs([Orgid|T], OrgList, State) ->
     getActiveOrgs(T, NewList, State).
     
 getOrgsToUpdate(State) ->
-    {data, Result} = mysql:fetch(db, "select orgid from companies"),
+    {data, Result} = mysql:fetch(db, "select orgid from " ++ ?ORGTYPE),
     OrgIDList = mysql:get_result_rows(Result),
     getActiveOrgs(OrgIDList, [], State).
 
