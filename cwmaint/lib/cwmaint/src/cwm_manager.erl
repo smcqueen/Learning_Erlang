@@ -86,18 +86,26 @@ init([]) ->
     {data, Result} = mysql:fetch(db, "show tables like 'activity%'"),
     TableList= mysql:get_result_rows(Result),
     io:format("Got tables ~p~n", [lists:flatten(TableList)]),
-    convertTableNames(lists:flatten(TableList)),
+    {ok, MP} = re:compile("activity([0-9]+)"),
+    convertTableNames(lists:flatten(TableList), MP),
     {ok, #state{available_processors = [],
 	       orgs_to_update = [],
 	       is_manager = IsManager,
 	       busy_processors = [],
 	       orgs_done = []}}.
 
-convertTableNames([]) ->
+convertTableNames([], _MP) ->
     ok;
-convertTableNames([TableNameBin | T]) ->
-    io:format("~p -> ~p~n", [TableNameBin, binary_to_list(TableNameBin)]),
-    convertTableNames(T).
+convertTableNames([TableNameBin | T], MP) ->
+    io:format("~p -> ~p", [TableNameBin, binary_to_list(TableNameBin)]),
+    TableName = binary_to_list(TableNameBin),
+    case re:run(TableName, MP, [{capture, none}]) of
+	nomatch -> io:format("~n");
+	match   ->
+	    [_first, OrgID, _last] = re:split(TableName, MP, [{return, list}]),
+	    io:format(", OrgID = ~p~n", [OrgID])
+    end,
+    convertTableNames(T, MP).
 
 %%--------------------------------------------------------------------
 %% @private
